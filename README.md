@@ -1,16 +1,11 @@
-# Programming Video Analysis Tool
+# Devmojis
 
 
 ## Installation:
 
-1. Clone the repository:
+1. Navigate to the project directory:
    ```bash
-   git clone https://github.com/AIxCode/Programming-Video-Analysis-Tool.git
-   ```
-
-2. Navigate to the project directory:
-   ```bash
-   cd Programming-Video-Analysis-Tool
+   cd Devmojis
    ```
 3. Install required dependencies:
    ```bash
@@ -144,7 +139,7 @@ To annotate a video & save your annotations using this tool, follow these steps 
 - By default, the annotated JSON file - `inni_template.json` will be saved in the project directory as :
 
 ```
-Programming-Video-Analysis-Tool/
+Devmojis/
 ├── app_study/
 │   ├── data/
 │   │   └── inni_template.json
