@@ -1,6 +1,9 @@
 # Ignore the virtual environment folder
 venv/
 
+
+tool paper/
+
 # Common files and folders to ignore
 *.mp4
 *.log
