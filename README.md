@@ -2,6 +2,7 @@
 
 **DevSelfTrace** is a lightweight, browser-based annotation tool for retrospective self-annotation of programming behavior. Given a screen recording of a programming session, developers divide it into self-defined time intervals and annotate each interval across four dimensions — **intention**, **action**, **supporting tool**, and **emotion** — through guided dropdown menus. All annotations are exported as structured JSON for downstream analysis such as sequential pattern mining or qualitative coding.
 
+**Project page**: <https://yinanwusoymilk.github.io/DevSelfTrace/> — abstract, tool overview, workflow walkthrough (with screenshots), evaluation highlights, and citation info. The source for the project page lives under [`docs/`](docs/) and is served via GitHub Pages.
 
 
 ## Installation:
