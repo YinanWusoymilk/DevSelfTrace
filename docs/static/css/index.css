@@ -1,0 +1,170 @@
+body {
+  font-family: 'Noto Sans', sans-serif;
+  color: #363636;
+}
+
+.hero.is-light {
+  background-color: #f7f9fc;
+}
+
+.title.is-1.publication-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 2.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.title.is-3.publication-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+}
+
+.publication-subtitle {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 1.35rem;
+  color: #6b6b6b;
+  margin-top: 0.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.publication-authors {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.publication-authors a {
+  color: hsl(204, 86%, 35%);
+}
+
+.publication-authors a:hover {
+  text-decoration: underline;
+}
+
+.publication-affiliations {
+  font-size: 0.95rem;
+  color: #6b6b6b;
+  margin-bottom: 1.2rem;
+}
+
+.publication-links {
+  margin-top: 1.5rem;
+}
+
+.publication-links .button {
+  background-color: #2c2c2c;
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 500;
+}
+
+.publication-links .button:hover {
+  background-color: hsl(204, 86%, 35%);
+  color: white;
+}
+
+.publication-links .button .icon {
+  margin-right: 0.4rem;
+}
+
+.section-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  margin-bottom: 1.2rem !important;
+}
+
+.content p {
+  line-height: 1.7;
+  font-size: 1.05rem;
+}
+
+.figure-caption {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #6b6b6b;
+  margin-top: 0.6rem;
+}
+
+.dimension-card {
+  background-color: #f7f9fc;
+  border-left: 3px solid hsl(204, 86%, 35%);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  height: 100%;
+}
+
+.dimension-card .dim-label {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  color: hsl(204, 86%, 25%);
+  margin-bottom: 0.4rem;
+}
+
+.workflow-step {
+  margin-bottom: 2.5rem;
+}
+
+.workflow-step .step-number {
+  display: inline-block;
+  width: 2rem;
+  height: 2rem;
+  line-height: 2rem;
+  text-align: center;
+  border-radius: 999px;
+  background-color: hsl(204, 86%, 35%);
+  color: white;
+  font-weight: 700;
+  margin-right: 0.6rem;
+}
+
+.workflow-step .step-title {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.eval-stat {
+  text-align: center;
+  padding: 1.2rem;
+  background-color: #f7f9fc;
+  border-radius: 8px;
+  height: 100%;
+}
+
+.eval-stat .stat-number {
+  font-family: 'Google Sans', 'Noto Sans', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: hsl(204, 86%, 35%);
+  line-height: 1;
+}
+
+.eval-stat .stat-label {
+  font-size: 0.95rem;
+  color: #4a4a4a;
+  margin-top: 0.5rem;
+}
+
+pre.bibtex {
+  background-color: #f4f4f4;
+  border-radius: 6px;
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  overflow-x: auto;
+  border: 1px solid #e0e0e0;
+}
+
+footer.footer {
+  background-color: #fafafa;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #6b6b6b;
+  font-size: 0.9rem;
+}
+
+footer.footer a {
+  color: hsl(204, 86%, 35%);
+}

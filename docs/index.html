@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevSelfTrace: A Self-Annotation Tool for Understanding Programming Behavior</title>
+<meta name="description" content="DevSelfTrace is a lightweight, browser-based annotation tool that lets developers retrospectively self-annotate their programming sessions across intention, action, supporting tool, and emotion.">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.15.4/css/all.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro">
+<link rel="stylesheet" href="static/css/index.css">
+</head>
+
+<body>
+
+<!-- HERO -->
+<section class="hero is-light">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+      <h1 class="title is-1 publication-title">DevSelfTrace</h1>
+      <p class="publication-subtitle">A Self-Annotation Tool for Understanding Programming Behavior</p>
+
+      <!-- Authors -->
+      <div class="publication-authors">
+        <span><a href="#">Yinan Wu</a><sup>1</sup>,</span>
+        <span><a href="#">Yogesh Hasabe</a><sup>1</sup>,</span>
+        <span><a href="#">Ze Shi Li</a><sup>2</sup>,</span>
+        <span><a href="#">Zhou Yang</a><sup>3</sup>,</span>
+        <span><a href="#">Kathryn Thomasset Stolee</a><sup>1</sup>,</span>
+        <span><a href="#">Bowen Xu</a><sup>1</sup></span>
+      </div>
+      <div class="publication-affiliations">
+        <sup>1</sup>North Carolina State University &nbsp;
+        <sup>2</sup>University of Oklahoma &nbsp;
+        <sup>3</sup>University of Alberta
+      </div>
+
+      <!-- Links -->
+      <div class="publication-links">
+        <a href="#" class="button">
+          <span class="icon"><i class="fas fa-file-pdf"></i></span>
+          <span>Paper</span>
+        </a>
+        <a href="https://github.com/YinanWusoymilk/DevSelfTrace" class="button">
+          <span class="icon"><i class="fab fa-github"></i></span>
+          <span>Code</span>
+        </a>
+        <a href="#" class="button">
+          <span class="icon"><i class="fab fa-youtube"></i></span>
+          <span>Demo Video</span>
+        </a>
+        <a href="https://doi.org/10.1145/3808120" class="button">
+          <span class="icon"><i class="fas fa-link"></i></span>
+          <span>FSE'26 Paper</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ABSTRACT -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 publication-title section-title">Abstract</h2>
+    <div class="content">
+      <p>
+        Understanding programming behavior in modern software development is increasingly important with the rise of artificial intelligence (AI).
+        Despite this increased importance, researchers lack tools to capture the complex, often invisible cognitive shifts in developer programming behavior.
+        To address this gap, we present <strong>DevSelfTrace</strong>, a general-purpose annotation tool that enables developers to retrospectively annotate their programming behavior across four key dimensions:
+        <em>intention</em>, <em>action</em>, <em>supporting tool</em>, and <em>emotion</em>.
+        DevSelfTrace supports flexible time segmentation, customizable labels, and exports structured logs in JSON format.
+      </p>
+      <p>
+        DevSelfTrace has been used by <strong>84 developers</strong> across multiple rounds of a mixed-methods user study investigating developer-AI interaction, where the collected annotation data directly supported the behavioral analysis reported in that study.
+        A dedicated tool evaluation survey (N=33) indicates that <strong>66.7%</strong> of developers found DevSelfTrace easy to use, and <strong>87.9%</strong> agreed that it could support research or education on programming behavior.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- TOOL OVERVIEW -->
+<section class="section" style="background-color:#fafbfd;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 publication-title section-title">Tool Overview</h2>
+    <div class="content">
+      <p>
+        DevSelfTrace is a lightweight, browser-based annotation tool that lets developers retrospectively self-annotate a screen recording of a programming session. The participant divides the recording into self-defined time intervals and annotates each interval across four dimensions, grounded in the <strong>S-IASE</strong> model from our FSE'26 paper.
+      </p>
+
+      <div class="columns is-multiline" style="margin-top:1.5rem;">
+        <div class="column is-3">
+          <div class="dimension-card">
+            <div class="dim-label">Intention</div>
+            <div>What the developer is trying to achieve (e.g., <em>To Resolve Errors</em>).</div>
+          </div>
+        </div>
+        <div class="column is-3">
+          <div class="dimension-card">
+            <div class="dim-label">Action</div>
+            <div>The observable activity (e.g., <em>Writing New Code</em>, <em>Crafting Query/Prompt</em>).</div>
+          </div>
+        </div>
+        <div class="column is-3">
+          <div class="dimension-card">
+            <div class="dim-label">Supporting Tool</div>
+            <div>The tool used (e.g., <em>AI Tools</em>, <em>IDE</em>, <em>Search Engine</em>).</div>
+          </div>
+        </div>
+        <div class="column is-3">
+          <div class="dimension-card">
+            <div class="dim-label">Emotion</div>
+            <div>The affective state on a 7-point valence scale.</div>
+          </div>
+        </div>
+      </div>
+
+      <figure style="margin-top:2rem;">
+        <img src="static/images/tool-overview.png" alt="DevSelfTrace tool overview">
+        <p class="figure-caption">Figure 1. DevSelfTrace graphical interface. Participants upload a screen recording, define time intervals, and annotate each interval across the four S-IASE dimensions.</p>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- WORKFLOW -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 publication-title section-title">Workflow</h2>
+
+    <div class="workflow-step">
+      <div>
+        <span class="step-number">1</span>
+        <span class="step-title">Upload a recording &amp; set a time interval</span>
+      </div>
+      <div class="content" style="margin-top:0.6rem;">
+        <p>Participants upload an MP4 screen recording of their programming session. Using a built-in video player, they navigate to a moment of interest and define a custom time interval with start/end timestamp selectors.</p>
+        <figure>
+          <img src="static/images/gui-rq123.png" alt="Uploading a recording and setting a time interval">
+          <p class="figure-caption">Figure 2. The participant uploads a screen recording (1), sets the start and end time of a specific time interval (2), and annotates the selected interval across four dimensions (3) via the corresponding dropdown menus.</p>
+        </figure>
+      </div>
+    </div>
+
+    <div class="workflow-step">
+      <div>
+        <span class="step-number">2</span>
+        <span class="step-title">Annotate via guided dropdown menus</span>
+      </div>
+      <div class="content" style="margin-top:0.6rem;">
+        <p>Each dimension comes with pre-defined options and accepts custom labels. Because <em>intention</em> is more abstract than the other dimensions, hovering over each intention reveals a short definition (e.g., <em>To Design/Plan New Code</em> → "Decide how to build something new").</p>
+        <figure>
+          <img src="static/images/dropdown-hover.png" alt="Dropdown menu with hover tip for the intention dimension">
+          <p class="figure-caption">Figure 3. Dropdown menu selection. Hover tips help participants choose the most appropriate intention label.</p>
+        </figure>
+      </div>
+    </div>
+
+    <div class="workflow-step">
+      <div>
+        <span class="step-number">3</span>
+        <span class="step-title">Review &amp; export structured JSON</span>
+      </div>
+      <div class="content" style="margin-top:0.6rem;">
+        <p>A live log table shows every annotated interval and allows in-place edit or delete. When the session is done, all annotations are exported as a structured JSON file suitable for sequence mining, co-occurrence modeling, or qualitative coding.</p>
+        <figure>
+          <img src="static/images/logs-table.png" alt="Logs table showing all annotated intervals">
+          <p class="figure-caption">Figure 4. Logs table displaying all existing annotations for review and editing.</p>
+        </figure>
+
+        <p style="margin-top:1rem;">An example of a single annotated interval in JSON format:</p>
+<pre class="bibtex">{
+  "id": 3,
+  "start": "2:33",
+  "end": "3:11",
+  "intention": "To Design/Plan New Code",
+  "action": ["Crafting Query/Prompt"],
+  "tool": ["AI Tools"],
+  "emotion": "Slightly Positive"
+}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- EVALUATION HIGHLIGHTS -->
+<section class="section" style="background-color:#fafbfd;">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 publication-title section-title">Evaluation Highlights</h2>
+
+    <div class="columns is-multiline" style="margin-top:1.5rem;">
+      <div class="column is-3">
+        <div class="eval-stat">
+          <div class="stat-number">84</div>
+          <div class="stat-label">developers used DevSelfTrace across pilot &amp; main study</div>
+        </div>
+      </div>
+      <div class="column is-3">
+        <div class="eval-stat">
+          <div class="stat-number">N=33</div>
+          <div class="stat-label">independent tool-evaluation survey responses</div>
+        </div>
+      </div>
+      <div class="column is-3">
+        <div class="eval-stat">
+          <div class="stat-number">66.7%</div>
+          <div class="stat-label">found the tool easy to use</div>
+        </div>
+      </div>
+      <div class="column is-3">
+        <div class="eval-stat">
+          <div class="stat-number">87.9%</div>
+          <div class="stat-label">agreed it could support research or education on programming behavior</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" style="margin-top:1.5rem;">
+      <p>
+        The annotation data collected through DevSelfTrace directly supported the behavioral analysis in our FSE'26 paper, including sequential pattern mining (CloSpan), aggregated behavioral comparisons, and thematic analysis &mdash; demonstrating that the tool produces research-quality data.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- CITATION -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 publication-title section-title">Citation</h2>
+    <div class="content">
+      <p>If you use DevSelfTrace in your research, please cite the underlying behavioral study (the S-IASE model originated here):</p>
+<pre class="bibtex">@inproceedings{wu2026developers,
+  title     = {How Do Developers Interact with AI? An Exploratory Study on
+               Modeling Developer Programming Behavior},
+  author    = {Wu, Yinan and Li, Ze Shi and Stolee, Kathryn Thomasset and Xu, Bowen},
+  booktitle = {Proceedings of the ACM International Conference on the
+               Foundations of Software Engineering (FSE)},
+  year      = {2026},
+  doi       = {10.1145/3808120}
+}</pre>
+
+      <p style="margin-top:1.5rem;">The DevSelfTrace tool paper (ASE'26 Tool Demo, under review):</p>
+<pre class="bibtex">@inproceedings{wu2026devselftrace,
+  title     = {DevSelfTrace: A Self-Annotation Tool for Understanding
+               Programming Behavior},
+  author    = {Wu, Yinan and Hasabe, Yogesh and Li, Ze Shi and Yang, Zhou and
+               Stolee, Kathryn Thomasset and Xu, Bowen},
+  booktitle = {Proceedings of the 41st IEEE/ACM International Conference on
+               Automated Software Engineering (ASE), Tool Demonstrations Track},
+  year      = {2026},
+  note      = {To appear}
+}</pre>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div>
+    Page template adapted from
+    <a href="https://nerfies.github.io/">Nerfies</a>.
+    Source available on <a href="https://github.com/YinanWusoymilk/DevSelfTrace">GitHub</a>.
+  </div>
+</footer>
+
+</body>
+</html>
