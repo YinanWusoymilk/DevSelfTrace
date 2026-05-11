@@ -1,11 +1,11 @@
-# Devmojis
+# DevSelfTrace
 
 
 ## Installation:
 
 1. Navigate to the project directory:
    ```bash
-   cd Devmojis
+   cd DevSelfTrace
    ```
 3. Install required dependencies:
    ```bash
@@ -139,7 +139,7 @@ To annotate a video & save your annotations using this tool, follow these steps 
 - By default, the annotated JSON file - `inni_template.json` will be saved in the project directory as :
 
 ```
-Devmojis/
+DevSelfTrace/
 ├── app_study/
 │   ├── data/
 │   │   └── inni_template.json
