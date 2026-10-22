@@ -1,0 +1,9 @@
+{
+  "name": "devselftrace",
+  "private": true,
+  "description": "Browser-based tool for retrospective self-annotation of programming behavior",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js"
+  }
+}

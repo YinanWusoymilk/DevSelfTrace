@@ -67,8 +67,9 @@
         };
     }
 
-    // Use the server when server.py answers /initialize_html, otherwise fall back to the browser
-    async function detect(fetchFn, storageArea) {
+    // Use the server when server.py answers /initialize_html, otherwise fall back to the browser.
+    // notify(message) shows problems to the user (alert in the page, a stub in tests).
+    async function detect(fetchFn, storageArea, notify) {
         try {
             const response = await fetchFn("/initialize_html", {
                 method: "POST",
@@ -79,7 +80,7 @@
                 if (info && info.json_path) return createServerStorage(fetchFn, info);
                 if (info && info.status === "error") {
                     // Never fall through to saving over a file we could not read
-                    alert(`The server could not read the logs file: ${info.message}\nAnnotations will be kept in this browser instead.`);
+                    notify(`The server could not read the logs file: ${info.message}\nAnnotations will be kept in this browser instead.`);
                 }
             }
         } catch (error) {

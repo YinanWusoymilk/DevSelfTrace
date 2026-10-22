@@ -41,7 +41,7 @@ let actionToolPairs = []; // Array to store all added pairs
 // Pick the storage backend and load existing logs
 async function initialization() {
     try {
-        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage);
+        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message));
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
         const session = await store.load();
         logs_data = session.data;
