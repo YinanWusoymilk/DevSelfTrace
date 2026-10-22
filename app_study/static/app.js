@@ -37,6 +37,8 @@ var questionsContainer = document.getElementById("questionsView");
 var labelsetSelect = document.getElementById("labelset-select");
 var labelsetLoadButton = document.getElementById("labelset-load");
 var labelsetFileInput = document.getElementById("labelset-file");
+var labelsetLockNote = document.getElementById("labelset-lock");
+var readOnly = false; // another tab is editing this session
 
 // Pick the storage backend and load existing logs
 async function initialization() {
@@ -153,6 +155,7 @@ function exportBackup() {
 
 // Another tab is already editing this session
 function enterReadOnly() {
+    readOnly = true;
     autosave.setReadOnly(true);
     [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton].forEach((button) => {
         button.disabled = true;
@@ -198,6 +201,7 @@ function populateLogsTable() {
             ${cells}
         `;
     });
+    updateLabelsetLock(); // adding the first log locks the label set, deleting the last one unlocks it
 }
 
 // ---- Label sets --------------------------------------------------------------
@@ -262,7 +266,9 @@ function switchLabelset(newLabelset) {
 function renderLabelsetPicker() {
     labelsetSelect.replaceChildren();
     let matched = false;
-    Object.keys(DSTPresets.presets).forEach((id) => {
+    // Default label set first, then the others alphabetically
+    const ids = Object.keys(DSTPresets.presets).sort((a, b) => (a === DSTPresets.defaultId ? -1 : b === DSTPresets.defaultId ? 1 : a.localeCompare(b)));
+    ids.forEach((id) => {
         const preset = presetLabelset(id);
         const option = new Option(preset.name, id);
         if (JSON.stringify(preset) === JSON.stringify(labelset)) {
@@ -276,7 +282,25 @@ function renderLabelsetPicker() {
         option.selected = true;
         labelsetSelect.appendChild(option);
     }
-    labelsetSelect.title = labelset.description || "";
+    updateLabelsetLock();
+}
+
+// Once a session has annotations its label set is fixed; show that instead of letting the picker snap back
+function updateLabelsetLock() {
+    const locked = logs_data.logs.length > 0;
+    labelsetSelect.disabled = locked || readOnly;
+    labelsetLoadButton.disabled = locked || readOnly;
+    labelsetLockNote.classList.toggle("hidden", !locked);
+    if (locked) {
+        labelsetLockNote.textContent = `Locked: this session already has annotations made with "${labelset.name}".`;
+        const why = "A session never mixes label sets, so the label set cannot change once there are annotations. Use another label set in a new session.";
+        labelsetLockNote.title = why;
+        labelsetSelect.title = why;
+        labelsetLoadButton.title = why;
+    } else {
+        labelsetSelect.title = labelset.description || "";
+        labelsetLoadButton.title = "Load a label set from a JSON file";
+    }
 }
 
 labelsetSelect.addEventListener("change", () => {
