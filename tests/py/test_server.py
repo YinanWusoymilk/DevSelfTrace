@@ -72,6 +72,10 @@ class ServerTest(unittest.TestCase):
         with open(self.json_file, encoding="utf-8") as f:
             return json.load(f)
 
+    def read_text(self):
+        with open(self.json_file, encoding="utf-8") as f:
+            return f.read()
+
     def test_home_serves_the_annotation_page(self):
         status, body = call("GET", "/")
         self.assertEqual(status, 200)
@@ -107,12 +111,79 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body), SAMPLE)
 
-    def test_update_json_overwrites_the_logs_file(self):
+    def save(self, data, revision):
+        status, body = call("POST", "/save", body={"revision": revision, "data": data})
+        return status, json.loads(body)
+
+    def test_save_writes_the_logs_and_bumps_the_revision(self):
         new_data = {"logs": SAMPLE["logs"] + [dict(SAMPLE["logs"][0], ID=2, Label3="Positive")]}
-        status, body = call("POST", "/update_json", body=new_data)
+        status, body = self.save(new_data, 0)  # the sample file has no revision yet, i.e. 0
         self.assertEqual(status, 200)
-        self.assertEqual(json.loads(body)["status"], "success")
-        self.assertEqual(self.read_file(), new_data)
+        self.assertEqual(body, {"status": "success", "revision": 1})
+        self.assertEqual(self.read_file(), dict(new_data, revision=1))
+
+        status, body = self.save(new_data, 1)
+        self.assertEqual(body["revision"], 2)
+
+    def test_save_based_on_an_old_revision_is_refused(self):
+        mine = {"logs": []}
+        self.save({"logs": [dict(SAMPLE["logs"][0], Label3="Positive")]}, 0)  # someone else saves first
+        before = self.read_file()
+
+        status, body = self.save(mine, 0)
+        self.assertEqual(status, 409)
+        self.assertEqual(body["status"], "conflict")
+        self.assertEqual(body["revision"], 1)
+        self.assertEqual(body["data"], before)  # the other version, so the user can choose
+        self.assertEqual(self.read_file(), before)  # nothing was overwritten
+
+    def test_save_keeps_the_five_previous_versions(self):
+        for revision in range(7):
+            self.save({"logs": [], "step": revision}, revision)
+        backups = sorted(name for name in os.listdir(self.tmp) if ".bak" in name)
+        self.assertEqual(backups, [f"session.json.bak{i}" for i in range(1, 6)])
+        with open(self.json_file + ".bak1", encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["revision"], 6)  # newest backup = version before the last save
+        with open(self.json_file + ".bak5", encoding="utf-8") as f:
+            self.assertEqual(json.load(f)["revision"], 2)
+
+    def test_a_failed_write_leaves_the_logs_file_intact(self):
+        before = self.read_text()
+        original_dump = server.json.dump
+
+        def crash_halfway(data, f, **kwargs):
+            f.write('{"logs": [')  # half a file, then the disk "fails"
+            raise OSError("disk full")
+
+        server.json.dump = crash_halfway
+        try:
+            status, body = self.save({"logs": []}, 0)
+        finally:
+            server.json.dump = original_dump
+        self.assertEqual(status, 500)
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(self.read_text(), before)
+        self.assertEqual([n for n in os.listdir(self.tmp) if n.endswith(".tmp")], [])
+
+    def test_save_over_an_unreadable_file_keeps_it_as_a_backup(self):
+        with open(self.json_file, "w", encoding="utf-8") as f:
+            f.write("{not json")
+        status, body = self.save({"logs": []}, 0)
+        self.assertEqual(status, 200)
+        with open(self.json_file + ".bak1", encoding="utf-8") as f:
+            self.assertEqual(f.read(), "{not json")
+
+    def test_save_rejects_a_malformed_request(self):
+        status, _ = call("POST", "/save", body={"revision": 0})
+        self.assertEqual(status, 400)
+        status, _ = call("POST", "/save", raw=b"{not json")
+        self.assertEqual(status, 400)
+        self.assertEqual(self.read_file(), SAMPLE)
+
+    def test_old_unchecked_save_endpoint_is_gone(self):
+        status, _ = call("POST", "/update_json", body={"logs": []})
+        self.assertEqual(status, 404)
+        self.assertEqual(self.read_file(), SAMPLE)
 
     def test_video_route_without_a_video(self):
         status, body = call("GET", "/files/video")

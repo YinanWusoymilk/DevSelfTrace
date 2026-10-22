@@ -147,10 +147,58 @@
     .content-section {
       padding: 10px;
     }
+
+    /* Save status (top right) and save problems banner */
+    .save-status {
+      position: fixed;
+      top: 8px;
+      right: 12px;
+      z-index: 1000;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font: 12px/1.4 sans-serif;
+      background: #e8e8e8;
+      color: #333;
+    }
+
+    .save-status.ok { background: #d1e7dd; color: #0f5132; }
+    .save-status.error { background: #f8d7da; color: #842029; }
+    .save-status.readonly { background: #cfe2ff; color: #084298; }
+
+    /* In the page flow (not floating), so it never covers the controls */
+    .save-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 36px 1em 8px;
+      padding: 10px 14px;
+      border: 1px solid #ffecb5;
+      border-radius: 6px;
+      background: #fff3cd;
+      color: #664d03;
+      font: 14px/1.4 sans-serif;
+    }
+
+    .save-banner.hidden { display: none; }
+
+    .save-banner button {
+      padding: 4px 10px;
+      border: 1px solid #997404;
+      border-radius: 4px;
+      background: #fff;
+      color: #664d03;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 
 <body>
+  <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
+  <div id="save-banner" class="save-banner hidden" role="alert"></div>
+
   <div class="main">
     <div class="section">
       <div class="section-content">

@@ -2,6 +2,8 @@
 
 // Storage backend, chosen at startup (server file or browser localStorage)
 var store = null;
+var autosave = null; // debounced, conflict-checked saving (DSTStorage.createAutosave)
+var tabLock = null; // only one tab may edit a session at a time
 var logs_data = { logs: [] }; // Initialize with empty logs if no data loaded initially
 
 // Variables
@@ -26,6 +28,8 @@ var customStateInputs = document.querySelectorAll("#customStateInput");
 var customStateButtons = document.querySelectorAll("#setCustomState");
 var setStartTimeButton = document.getElementById("setStartTime");
 var setEndTimeButton = document.getElementById("setEndTime");
+var saveStatusEl = document.getElementById("save-status");
+var saveBannerEl = document.getElementById("save-banner");
 
 // Track selected states for Q1, Q2, and Q3
 let selectedStateQ1 = "";
@@ -46,11 +50,129 @@ async function initialization() {
         const session = await store.load();
         logs_data = session.data;
         if (session.videoPath) video.src = session.videoPath;
+        autosave = DSTStorage.createAutosave(store, {
+            revision: session.revision,
+            getData: () => logs_data,
+            onStatus: showSaveStatus,
+        });
         populateLogsTable();
+        showSaveStatus({ state: "saved", at: null });
+
+        tabLock = DSTStorage.createTabLock("devselftrace:session", {
+            onReleased: () => showBanner("The other tab was closed. Reload this tab to edit here.", [["Reload", () => location.reload()]]),
+        });
+        if (!(await tabLock.claim())) enterReadOnly();
     } catch (error) {
         console.error("Failed to load logs.", error);
+        showSaveStatus({ state: "error", message: "Could not load the annotations." });
     }
 }
+
+// Show where and when the logs were last saved, and explain any problem
+function showSaveStatus(status) {
+    const where = store && store.mode === "server" ? "to file" : "in this browser";
+    let text = "";
+    let level = "busy";
+    switch (status.state) {
+        case "saved":
+            text = status.at ? `Saved ${where} · ${status.at.toLocaleTimeString()}` : `All changes saved ${where}`;
+            level = "ok";
+            hideBanner();
+            break;
+        case "pending":
+            text = "Unsaved changes…";
+            break;
+        case "saving":
+            text = "Saving…";
+            break;
+        case "error":
+            level = "error";
+            if (status.retryInMs) {
+                text = `Not saved · retrying in ${Math.round(status.retryInMs / 1000)}s`;
+                showBanner(`Could not save your annotations: ${status.message} Your work is still in this page.`, [
+                    ["Retry now", () => autosave.flush()],
+                    ["Export a backup", exportBackup],
+                ]);
+            } else {
+                text = status.message;
+            }
+            break;
+        case "conflict":
+            text = "Not saved · changed elsewhere";
+            level = "error";
+            showBanner("These annotations were changed somewhere else (another tab or program) after you loaded them.", [
+                ["Load their version", loadRemoteVersion],
+                ["Keep mine", () => autosave.overwrite()],
+                ["Export mine", exportBackup],
+            ]);
+            break;
+        case "readonly":
+            text = "Read-only";
+            level = "readonly";
+            break;
+    }
+    saveStatusEl.textContent = text;
+    saveStatusEl.className = `save-status ${level}`;
+}
+
+// Banner with a message and action buttons (actions: [label, handler] pairs)
+function showBanner(message, actions) {
+    saveBannerEl.replaceChildren();
+    const text = document.createElement("span");
+    text.textContent = message;
+    saveBannerEl.appendChild(text);
+    actions.forEach(([label, handler]) => {
+        const button = document.createElement("button");
+        button.textContent = label;
+        button.addEventListener("click", handler);
+        saveBannerEl.appendChild(button);
+    });
+    saveBannerEl.classList.remove("hidden");
+}
+
+function hideBanner() {
+    saveBannerEl.classList.add("hidden");
+}
+
+// Conflict: continue from the version saved elsewhere
+function loadRemoteVersion() {
+    logs_data = autosave.getConflict().data;
+    autosave.acceptRemote();
+    populateLogsTable();
+}
+
+// Download the current annotations as a JSON file
+function exportBackup() {
+    const blob = new Blob([JSON.stringify(logs_data, null, 4)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `devselftrace_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+// Another tab is already editing this session
+function enterReadOnly() {
+    autosave.setReadOnly(true);
+    [button_add_row, button_delete_row, button_edit_label].forEach((button) => {
+        button.disabled = true;
+        button.title = "Read-only: this session is open in another tab";
+    });
+    showBanner("This session is already open in another tab. This tab is read-only so the two tabs cannot overwrite each other.", [
+        ["Reload", () => location.reload()],
+    ]);
+}
+
+// Warn before leaving with changes that are not saved yet; let other tabs know this one is gone
+window.addEventListener("beforeunload", (event) => {
+    if (autosave && autosave.isDirty()) {
+        event.preventDefault();
+        event.returnValue = "";
+    }
+});
+window.addEventListener("pagehide", () => {
+    if (tabLock) tabLock.release();
+});
 
 // Populate logs table
 function populateLogsTable() {
@@ -76,7 +198,6 @@ function populateLogsTable() {
             <td>${escape(log.Label3 || "N/A")}</td>
         `;
     });
-    autoSaveLogs(); // Auto-save logs after population
 }
 
 // Highlight row during navigation
@@ -173,7 +294,8 @@ button_add_row.onclick = function () {
 
     logs_data.logs.push(newLog);
     populateLogsTable();
-  
+    autoSaveLogs();
+
     alert("Log added successfully!");
   
     // Reset states and pairs
@@ -216,6 +338,7 @@ button_edit_label.onclick = function () {
     DSTCore.applyEdit(log, selectedStateQ1, actionToolPairs, selectedStateQ3);
 
     populateLogsTable();
+    autoSaveLogs();
 
     alert("Log edited successfully!");
 
@@ -233,16 +356,13 @@ button_edit_label.onclick = function () {
 function deleteRow(index) {
     logs_data.logs.splice(index, 1);
     populateLogsTable();
+    autoSaveLogs();
     alert("Row deleted successfully!");
 }
 
-// Auto-save logs
+// Auto-save logs (debounced; see showSaveStatus for progress)
 function autoSaveLogs() {
-    if (!store) return;
-    console.log("Auto-saving logs...");
-    store.save(logs_data).then((ok) => {
-        if (ok) console.log("Logs auto-saved successfully!");
-    });
+    if (autosave) autosave.schedule();
 }
 
 // AutoPlay functionality
