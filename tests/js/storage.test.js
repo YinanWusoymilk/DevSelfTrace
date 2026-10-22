@@ -95,7 +95,14 @@ test("server storage loads the logs file, its revision and the optional video pa
     const data = { logs: [{ ID: 1 }], revision: 4 };
     const fetchFn = fakeFetch({ "GET /files/json": { body: data } });
     const store = storage.createServerStorage(fetchFn, { json_path: "/files/json", video_path: "/files/video" });
-    assert.deepEqual(await store.load(), { data: data, revision: 4, videoPath: "/files/video" });
+    assert.deepEqual(await store.load(), { data: data, revision: 4, videoPath: "/files/video", labelset: null });
+});
+
+test("server storage passes on the label set given to server.py --labels", async () => {
+    const labelset = { name: "CUPS", dimensions: [] };
+    const fetchFn = fakeFetch({ "GET /files/json": { body: { logs: [] } } });
+    const store = storage.createServerStorage(fetchFn, { json_path: "/files/json", labelset: labelset });
+    assert.equal((await store.load()).labelset, labelset);
 });
 
 test("server storage treats a file without a revision as revision 0", async () => {
@@ -132,7 +139,7 @@ test("server storage reports an unreachable server as an error", async () => {
 
 test("browser storage starts empty and round-trips a session with revisions", async () => {
     const store = storage.createBrowserStorage(fakeStorageArea());
-    assert.deepEqual(await store.load(), { data: { logs: [] }, revision: 0, videoPath: null });
+    assert.deepEqual(await store.load(), { data: { logs: [] }, revision: 0, videoPath: null, labelset: null });
 
     const data = { logs: [{ ID: 1, Label1: "To Implement Code" }] };
     assert.deepEqual(await store.write(data, 0), { ok: true, revision: 1 });
@@ -286,6 +293,15 @@ test("autosave can overwrite the other version when the user chooses to", async 
     assert.equal(backend.writes[1].baseRevision, 8);
     assert.equal(autosave.getRevision(), 9);
     assert.equal(autosave.isDirty(), false);
+});
+
+test("conflict choices do nothing once the conflict is resolved (e.g. a second click)", async () => {
+    const backend = scriptedBackend([]);
+    const autosave = storage.createAutosave(backend, { revision: 3, getData: () => ({ logs: [] }), ...manualTimers() });
+    autosave.acceptRemote();
+    await autosave.overwrite();
+    assert.equal(autosave.getRevision(), 3);
+    assert.equal(backend.writes.length, 0);
 });
 
 test("autosave in read-only mode never writes", async () => {

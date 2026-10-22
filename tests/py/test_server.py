@@ -100,6 +100,24 @@ class ServerTest(unittest.TestCase):
         info = json.loads(call("POST", "/initialize_html")[1])
         self.assertEqual(info["video_path"], "/files/video")
 
+    def test_initialize_passes_on_the_label_set(self):
+        info = json.loads(call("POST", "/initialize_html")[1])
+        self.assertIsNone(info["labelset"])  # no --labels: the page uses its default
+
+        server.labelset = server.load_labelset(os.path.join(APP_DIR, "..", "labels", "cups.json"))
+        try:
+            info = json.loads(call("POST", "/initialize_html")[1])
+        finally:
+            server.labelset = None
+        self.assertEqual(info["labelset"]["name"], "CUPS")
+
+    def test_load_labelset_rejects_files_that_are_not_label_sets(self):
+        not_labels = os.path.join(self.tmp, "not_labels.json")
+        with open(not_labels, "w", encoding="utf-8") as f:
+            json.dump({"logs": []}, f)
+        with self.assertRaises(ValueError):
+            server.load_labelset(not_labels)
+
     def test_initialize_reports_an_unreadable_logs_file(self):
         with open(self.json_file, "w", encoding="utf-8") as f:
             f.write("{not json")

@@ -24,23 +24,19 @@ var table_events = document.getElementById("table_events");
 var button_add_row = document.getElementById("addRow");
 var button_delete_row = document.getElementById("deleteRow");
 var button_edit_label = document.getElementById("editLabel");
-var customStateInputs = document.querySelectorAll("#customStateInput");
-var customStateButtons = document.querySelectorAll("#setCustomState");
 var setStartTimeButton = document.getElementById("setStartTime");
 var setEndTimeButton = document.getElementById("setEndTime");
 var saveStatusEl = document.getElementById("save-status");
 var saveBannerEl = document.getElementById("save-banner");
 
-// Track selected states for Q1, Q2, and Q3
-let selectedStateQ1 = "";
-let selectedStateQ2 = "";
-let selectedStateQ3 = "";
-var q1IntentionDropdown = document.getElementById("intentions-section");
-var q3ValenceDropdown = document.getElementById("q3-valence-form"); 
-
-let currentAction = null; // Currently selected action
-let currentTool = null; // Currently selected tool
-let actionToolPairs = []; // Array to store all added pairs
+// Label set (dimensions and options) and the answers chosen for the current interval
+var labelset = null;
+var selection = {}; // dimension id -> option (single) or list of [a, b] pairs
+var pairDrafts = {}; // dimension id -> { field id -> value } for the pair being put together
+var questionsContainer = document.getElementById("questionsView");
+var labelsetSelect = document.getElementById("labelset-select");
+var labelsetLoadButton = document.getElementById("labelset-load");
+var labelsetFileInput = document.getElementById("labelset-file");
 
 // Pick the storage backend and load existing logs
 async function initialization() {
@@ -55,8 +51,8 @@ async function initialization() {
             getData: () => logs_data,
             onStatus: showSaveStatus,
         });
-        populateLogsTable();
         showSaveStatus({ state: "saved", at: null });
+        chooseInitialLabelset(session.labelset);
 
         tabLock = DSTStorage.createTabLock("devselftrace:session", {
             onReleased: () => showBanner("The other tab was closed. Reload this tab to edit here.", [["Reload", () => location.reload()]]),
@@ -136,9 +132,13 @@ function hideBanner() {
 
 // Conflict: continue from the version saved elsewhere
 function loadRemoteVersion() {
-    logs_data = autosave.getConflict().data;
+    const conflict = autosave.getConflict();
+    if (!conflict) return; // already resolved
+    logs_data = conflict.data;
     autosave.acceptRemote();
-    populateLogsTable();
+    // The other version may use a different label set
+    const checked = logs_data.labelset ? DSTCore.validateLabelset(logs_data.labelset) : null;
+    applyLabelset(checked && checked.ok ? checked.labelset : presetLabelset(DSTPresets.defaultId));
 }
 
 // Download the current annotations as a JSON file
@@ -154,7 +154,7 @@ function exportBackup() {
 // Another tab is already editing this session
 function enterReadOnly() {
     autosave.setReadOnly(true);
-    [button_add_row, button_delete_row, button_edit_label].forEach((button) => {
+    [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton].forEach((button) => {
         button.disabled = true;
         button.title = "Read-only: this session is open in another tab";
     });
@@ -176,28 +176,284 @@ window.addEventListener("pagehide", () => {
 
 // Populate logs table
 function populateLogsTable() {
+    if (!labelset) return;
+    // One column per dimension of the label set; dimension i is stored as Label<i+1>
+    const headers = labelset.dimensions.map((dim, i) => `<th>Question ${i + 1}</th>`).join("");
     table_events.innerHTML = `
         <tr>
             <th>ID</th>
             <th>Timestamps</th>
-            <th>Question 1</th>
-            <th>Question 2</th>
-            <th>Question 3</th>
+            ${headers}
         </tr>`;
     const escape = DSTCore.escapeHtml;
     logs_data.logs.forEach((log, index) => {
         const startTimestamp = DSTCore.formatTime(log.Timestamps.start);
         const endTimestamp = DSTCore.formatTime(log.Timestamps.end);
+        const cells = labelset.dimensions.map((dim, i) => `<td>${escape(log[`Label${i + 1}`] || "N/A")}</td>`).join("");
 
         const row = table_events.insertRow();
         row.innerHTML = `
             <td>${escape(log.ID)}</td>
             <td>${startTimestamp} - ${endTimestamp}</td>
-            <td>${escape(log.Label1 || "N/A")}</td>
-            <td>${escape(log.Label2 || "N/A")}</td>
-            <td>${escape(log.Label3 || "N/A")}</td>
+            ${cells}
         `;
     });
+}
+
+// ---- Label sets --------------------------------------------------------------
+
+// A bundled label set (labels/*.json, packed into static/presets.js), checked and with defaults filled in
+function presetLabelset(id) {
+    const raw = DSTPresets.presets[id];
+    return raw ? DSTCore.validateLabelset(raw).labelset : null;
+}
+
+// Pick the label set for this session: the one saved with it, else ?labels= or server.py --labels, else the default
+function chooseInitialLabelset(serverLabelset) {
+    const fallback = presetLabelset(DSTPresets.defaultId);
+    const problems = [];
+
+    let requested = null;
+    if (serverLabelset) {
+        const checked = DSTCore.validateLabelset(serverLabelset);
+        if (checked.ok) requested = checked.labelset;
+        else problems.push(`The label set given to server.py is not valid (${checked.errors.slice(0, 3).join("; ")}).`);
+    } else {
+        const id = new URLSearchParams(location.search).get("labels");
+        if (id) {
+            requested = presetLabelset(id);
+            if (!requested) problems.push(`Unknown label set "${id}". Available: ${Object.keys(DSTPresets.presets).join(", ")}.`);
+        }
+    }
+
+    let stored = null;
+    if (logs_data.labelset) {
+        const checked = DSTCore.validateLabelset(logs_data.labelset);
+        if (checked.ok) stored = checked.labelset;
+        else problems.push("The label set saved with this session is not valid; showing the default label set.");
+    }
+
+    const choice = DSTCore.resolveLabelset(stored, requested, logs_data.logs.length > 0, fallback);
+    if (choice.warning) problems.push(choice.warning);
+    applyLabelset(choice.labelset);
+    if (problems.length > 0) showBanner(problems.join(" "), [["Dismiss", hideBanner]]);
+}
+
+// Use a label set: rebuild the questions, the picker and the table. It is saved with the session.
+function applyLabelset(newLabelset) {
+    labelset = newLabelset;
+    logs_data.labelset = newLabelset;
+    renderQuestions();
+    renderLabelsetPicker();
+    populateLogsTable();
+}
+
+// Switching is only allowed before the first annotation, so logs never mix label sets
+function switchLabelset(newLabelset) {
+    if (logs_data.logs.length > 0) {
+        alert(`This session already has annotations made with the "${labelset.name}" label set. Export them and start a new session to use a different label set.`);
+        renderLabelsetPicker();
+        return;
+    }
+    applyLabelset(newLabelset);
+    autoSaveLogs();
+}
+
+function renderLabelsetPicker() {
+    labelsetSelect.replaceChildren();
+    let matched = false;
+    Object.keys(DSTPresets.presets).forEach((id) => {
+        const preset = presetLabelset(id);
+        const option = new Option(preset.name, id);
+        if (JSON.stringify(preset) === JSON.stringify(labelset)) {
+            option.selected = true;
+            matched = true;
+        }
+        labelsetSelect.appendChild(option);
+    });
+    if (!matched) {
+        const option = new Option(`${labelset.name} (from file)`, "");
+        option.selected = true;
+        labelsetSelect.appendChild(option);
+    }
+    labelsetSelect.title = labelset.description || "";
+}
+
+labelsetSelect.addEventListener("change", () => {
+    const chosen = presetLabelset(labelsetSelect.value);
+    if (chosen) switchLabelset(chosen);
+});
+
+labelsetLoadButton.addEventListener("click", () => labelsetFileInput.click());
+
+labelsetFileInput.addEventListener("change", async () => {
+    const file = labelsetFileInput.files[0];
+    labelsetFileInput.value = "";
+    if (!file) return;
+    let raw;
+    try {
+        raw = JSON.parse(await file.text());
+    } catch (error) {
+        alert(`"${file.name}" is not valid JSON: ${error.message}`);
+        return;
+    }
+    const checked = DSTCore.validateLabelset(raw);
+    if (!checked.ok) {
+        alert(`"${file.name}" is not a valid label set:\n- ${checked.errors.slice(0, 8).join("\n- ")}`);
+        return;
+    }
+    switchLabelset(checked.labelset);
+});
+
+// ---- Questions ---------------------------------------------------------------
+
+function element(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+}
+
+function optionSelect(placeholder, options) {
+    const select = element("select", "dimension-select");
+    const first = new Option(placeholder, "");
+    first.disabled = true;
+    first.selected = true;
+    select.appendChild(first);
+    options.forEach((option) => {
+        const item = new Option(option.value, option.value);
+        if (option.hint) item.title = option.hint; // shown when hovering the option
+        select.appendChild(item);
+    });
+    return select;
+}
+
+function selectRow(label, select) {
+    const row = element("div", "dimension-row");
+    row.append(element("span", "dimension-name", label), select);
+    return row;
+}
+
+// Text box + "Add Custom <label>" button; onAdd receives the trimmed text
+function customInput(label, onAdd) {
+    const container = element("div", "state-input-container-inline");
+    const input = element("input", "state-input");
+    input.type = "text";
+    input.placeholder = `Enter custom ${label.toLowerCase()}`;
+    const button = element("button", "custom-state-btn", `Add Custom ${label}`);
+    button.addEventListener("click", () => {
+        const value = input.value.trim();
+        if (!value) {
+            alert(`Enter a valid custom ${label.toLowerCase()}.`);
+            return;
+        }
+        onAdd(value);
+        input.value = "";
+    });
+    container.append(input, button);
+    return container;
+}
+
+// One block per dimension: a dropdown (single) or two dropdowns that add pairs (pairs)
+function renderQuestions() {
+    selection = {};
+    pairDrafts = {};
+    questionsContainer.replaceChildren();
+    labelset.dimensions.forEach((dim, i) => {
+        const block = element("div", "state-buttons-container-wrapper");
+        block.appendChild(element("label", "dimension-prompt", `Q${i + 1}. ${dim.prompt}`));
+        if (dim.type === "pairs") renderPairsQuestion(block, dim);
+        else renderSingleQuestion(block, dim);
+        questionsContainer.append(block, element("hr", "dimension-divider"));
+    });
+    updateSelectedStatesDisplay();
+}
+
+function renderSingleQuestion(block, dim) {
+    const select = optionSelect(dim.placeholder, dim.options);
+    select.addEventListener("change", () => {
+        selection[dim.id] = select.value;
+        updateSelectedStatesDisplay();
+    });
+    const rows = element("div", "dimension-rows");
+    rows.appendChild(selectRow(dim.label, select));
+    block.appendChild(rows);
+    if (dim.allowCustom) {
+        block.appendChild(customInput(dim.label, (value) => {
+            selection[dim.id] = value;
+            updateSelectedStatesDisplay();
+        }));
+    }
+}
+
+function renderPairsQuestion(block, dim) {
+    pairDrafts[dim.id] = {};
+    const rows = element("div", "dimension-rows");
+    const selects = dim.fields.map((field) => {
+        const select = optionSelect(field.placeholder, field.options);
+        select.addEventListener("change", () => {
+            pairDrafts[dim.id][field.id] = select.value;
+        });
+        rows.appendChild(selectRow(field.label, select));
+        if (dim.allowCustom) {
+            const custom = element("div");
+            custom.append(
+                element("p", "dimension-note", `* Only use the "Add Custom ${field.label}" button below to add a custom ${field.label.toLowerCase()}.`),
+                customInput(field.label, (value) => {
+                    pairDrafts[dim.id][field.id] = value;
+                    alert(`Custom ${field.label} "${value}" added.`);
+                })
+            );
+            rows.appendChild(custom);
+        }
+        return select;
+    });
+    block.appendChild(rows);
+
+    const list = element("ul", "pair-list");
+    const addButton = element("button", "custom-state-btn color-10 add-pair-btn", `Add ${dim.label}`);
+    addButton.addEventListener("click", () => {
+        const draft = pairDrafts[dim.id];
+        const missing = dim.fields.find((field) => !field.optional && !draft[field.id]);
+        if (missing) {
+            alert(`Please select ${missing.label.toLowerCase()}.`);
+            return;
+        }
+        const pair = dim.fields.map((field) => draft[field.id] || "null"); // optional fields left empty are stored as "null"
+        selection[dim.id] = (selection[dim.id] || []).concat([pair]);
+        list.appendChild(element("li", "", `[${pair[0]}, ${pair[1]}]`));
+        updateSelectedStatesDisplay();
+
+        pairDrafts[dim.id] = {};
+        selects.forEach((select) => (select.value = ""));
+    });
+    const addRow = element("div", "add-pair-row");
+    addRow.appendChild(addButton);
+
+    const clearButton = element("button", "clear-pairs-btn", "Clear Selection");
+    clearButton.addEventListener("click", () => {
+        selection[dim.id] = [];
+        list.replaceChildren();
+        updateSelectedStatesDisplay();
+        alert(`${dim.label} selections have been cleared!`);
+    });
+
+    block.append(
+        element("p", "dimension-note", `* Use the "Add ${dim.label}" button to add selected or entered ${dim.label.toLowerCase()}.`),
+        addRow,
+        clearButton,
+        element("h4", "pair-list-title", `Selected ${dim.label}s:`),
+        list
+    );
+}
+
+// Clear the answers after a log is added or edited
+function resetSelection() {
+    selection = {};
+    Object.keys(pairDrafts).forEach((id) => (pairDrafts[id] = {}));
+    questionsContainer.querySelectorAll("select").forEach((select) => (select.value = ""));
+    questionsContainer.querySelectorAll(".pair-list").forEach((list) => list.replaceChildren());
+    updateSelectedStatesDisplay();
 }
 
 // Highlight row during navigation
@@ -212,41 +468,8 @@ function highlightRow(index) {
     });
 }
 
-// Custom state functionality for Q1, Q2, Q3
-customStateButtons.forEach((button, index) => {
-    button.addEventListener("click", () => {
-        const input = customStateInputs[index];
-        const customState = input.value.trim();
-        if (!customState) {
-            alert("Enter a valid custom state.");
-            return;
-        }
-        switch (index) {
-            case 0:
-                selectedStateQ1 = customState;
-                break;
-            case 1:
-                selectedStateQ2 = customState;
-                break;
-            case 2:
-                selectedStateQ3 = customState;
-                break;
-        }
-        updateSelectedStatesDisplay();
-        input.value = ""; // Clear input
-    });
-});
-
 function updateSelectedStatesDisplay() {
-    const actionToolPairsText = DSTCore.describeActionToolPairs(actionToolPairs);
-
-    // Update the text area with selected states
-    state_text.innerText = `
-        Selected States:
-        Q1: ${selectedStateQ1 || "None"},
-        Q2: ${actionToolPairsText},
-        Q3: ${selectedStateQ3 || "None"}
-    `;
+    state_text.innerText = `Selected States: ${DSTCore.describeSelection(labelset, selection)}`;
 }
 
 // Set start time
@@ -274,23 +497,13 @@ button_add_row.onclick = function () {
       return;
     }
 
-    // Validation for Q1, Q2, and Q3
-    if (!selectedStateQ1 || selectedStateQ1 === "N/A") {
+    // Every dimension of the label set needs an answer
+    if (!DSTCore.isSelectionComplete(labelset, selection)) {
         alert("Please answer all the questions to add a log.");
         return;
     }
 
-    if (actionToolPairs.length === 0) {
-        alert("Please answer all the questions to add a log.");
-        return;
-    }
-
-    if (!selectedStateQ3 || selectedStateQ3 === "N/A") {
-        alert("Please answer all the questions to add a log.");
-        return;
-    }
-  
-    const newLog = DSTCore.createLog(logs_data.logs, startTime, endTime, selectedStateQ1, actionToolPairs, selectedStateQ3);
+    const newLog = DSTCore.createLog(logs_data.logs, startTime, endTime, labelset, selection);
 
     logs_data.logs.push(newLog);
     populateLogsTable();
@@ -298,17 +511,12 @@ button_add_row.onclick = function () {
 
     alert("Log added successfully!");
   
-    // Reset states and pairs
+    // Reset times and answers
     startTime = null;
     endTime = null;
-    selectedStateQ1 = selectedStateQ2 = selectedStateQ3 = "";
-    actionToolPairs = [];
-    document.getElementById("action-tool-pairs-list").innerHTML = "";
-    q1IntentionDropdown.value = ""; // Reset Q1 dropdown - Reset to default disabled option
-    q3ValenceDropdown.value = ""; // Reset Q3 dropdown - Reset to default disabled option
     updateSelectedTimes();
-    updateSelectedStatesDisplay();
-  };  
+    resetSelection();
+  };
 
 // Delete log row
 button_delete_row.onclick = function () {
@@ -335,21 +543,14 @@ button_edit_label.onclick = function () {
     const log = logs_data.logs[rowIndex];
 
     // Update the log with new selections; empty fields keep their old value
-    DSTCore.applyEdit(log, selectedStateQ1, actionToolPairs, selectedStateQ3);
+    DSTCore.applyEdit(log, labelset, selection);
 
     populateLogsTable();
     autoSaveLogs();
 
     alert("Log edited successfully!");
 
-    // Reset states and pairs
-    selectedStateQ1 = selectedStateQ2 = selectedStateQ3 = "";
-    actionToolPairs = [];
-    document.getElementById("action-tool-pairs-list").innerHTML = "";
-    q1IntentionDropdown.value = ""; // Reset to default disabled option
-    q3ValenceDropdown.value = ""; // Reset to default disabled option
-
-    updateSelectedStatesDisplay();
+    resetSelection();
 };
 
 // Delete log row
@@ -432,92 +633,6 @@ loadVideoButton.addEventListener("click", () => {
     video.src = fileURL; // Set the video source to the selected file
     alert("Video loaded successfully!");
 });
-
-// Event listener for Q3 dropdown changes
-q3ValenceDropdown.addEventListener("change", (event) => {
-    selectedStateQ3 = event.target.value; // Update the selected value
-    updateSelectedStatesDisplay();
-  });
-
-
-// Event listener for action selection
-document.getElementById("actions-section").addEventListener("change", (event) => {
-    currentAction = event.target.value; // Get selected value from the dropdown
-});
-  
-// Event listener for tool selection
-document.getElementById("tools-section").addEventListener("change", (event) => {
-    currentTool = event.target.value; // Get selected value from the dropdown
-});
-
-// Add custom action
-document.getElementById("add-custom-action").addEventListener("click", () => {
-  const customActionInput = document.getElementById("custom-action");
-  const customAction = customActionInput.value.trim();
-  if (customAction) {
-    currentAction = customAction;
-    customActionInput.value = "";
-    alert(`Custom Action "${customAction}" added.`);
-  }
-});
-
-// Add custom tool
-document.getElementById("add-custom-tool").addEventListener("click", () => {
-  const customToolInput = document.getElementById("custom-tool");
-  const customTool = customToolInput.value.trim();
-  if (customTool) {
-    currentTool = customTool;
-    customToolInput.value = "";
-    alert(`Custom Tool "${customTool}" added.`);
-  }
-});
-
-// Add Action-Tool Pair
-document.getElementById("add-action-tool-pair").addEventListener("click", () => {
-    if (!currentAction) {
-      alert("Please select an action.");
-      return;
-    }
-  
-    const tool = currentTool || "null"; // Default to "null" if no tool is selected
-    const pair = [currentAction, tool];
-    actionToolPairs.push(pair);
-  
-    // Update pairs in UI
-    const pairsList = document.getElementById("action-tool-pairs-list");
-    const listItem = document.createElement("li");
-    listItem.textContent = `[${pair[0]}, ${pair[1]}]`; 
-    pairsList.appendChild(listItem);
-  
-    updateSelectedStatesDisplay(); 
-  
-    // Reset current selections
-    currentAction = null;
-    currentTool = null;
-    document.getElementById("actions-section").value = ""; 
-    document.getElementById("tools-section").value = ""; 
-  });
-
-
-// Event Listener for Clear Selection Button
-document.getElementById("clear-selection").addEventListener("click", () => {
-    actionToolPairs = [];
-    const pairsList = document.getElementById("action-tool-pairs-list");
-    pairsList.innerHTML = "";
-  
-    // Reset the display of selected states
-    updateSelectedStatesDisplay();
-  
-    alert("Action-Tool Pair selections have been cleared!");
-  });
-
-
-// Event listener for Q1 dropdown changes
-q1IntentionDropdown.addEventListener("change", (event) => {
-    selectedStateQ1 = event.target.value; // Update the selected value
-    updateSelectedStatesDisplay();
-  });
-
 
 // Initialize everything
 initialization();

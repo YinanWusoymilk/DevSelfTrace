@@ -1,0 +1,29 @@
+{
+  "name": "CUPS",
+  "description": "CodeRec User Programming States for annotating work with an AI code completion tool (Mozannar et al., CHI 2024). A fixed taxonomy, so custom labels are turned off.",
+  "source": "State names and definitions from the CUPS labeling tool, https://github.com/microsoft/coderec_programming_states (MIT License, Copyright (c) Microsoft Corporation).",
+  "dimensions": [
+    {
+      "id": "state",
+      "label": "State",
+      "prompt": "Which programming state were you in during this time interval?",
+      "type": "single",
+      "allowCustom": false,
+      "placeholder": "Select a state",
+      "options": [
+        { "value": "Thinking/Verifying Suggestion", "hint": "actively thinking/verifying about suggestion shown, also includes going to the internet to verify" },
+        { "value": "Not Thinking", "hint": "not thinking about suggestion shown" },
+        { "value": "Deferring Thought For Later", "hint": "decide to not think now about suggestion, but will think later about it" },
+        { "value": "Thinking About New Code To Write", "hint": "thinking about code outside suggestions to write, new functionality" },
+        { "value": "Waiting For Suggestion", "hint": "waiting for Copilot suggestion to be shown" },
+        { "value": "Writing New Functionality", "hint": "writing code that implements new functionality" },
+        { "value": "Editing Last Suggestion", "hint": "editing recent Copilot suggestions" },
+        { "value": "Editing (Personally) Written Code", "hint": "editing code you wrote that was not a Copilot suggestion for purpose of fixing functionality" },
+        { "value": "Prompt Crafting", "hint": "writing comment or code with intention of copilot completion" },
+        { "value": "Writing Documentation", "hint": "adding comments for purpose of documentation" },
+        { "value": "Debugging/Testing Code", "hint": "running or debugging code to check functionality, may include writing tests or debugging statements" },
+        { "value": "Looking up Documentation", "hint": "going online to look up code or documentation" }
+      ]
+    }
+  ]
+}
