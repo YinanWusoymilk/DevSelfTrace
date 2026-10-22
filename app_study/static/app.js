@@ -1,6 +1,7 @@
-// Variables for paths
-var json_path = ""; // Will be set dynamically
-var video_path = ""; // Will be set dynamically
+// DevSelfTrace UI: wires the page to DSTCore (static/core.js) and DSTStorage (static/storage.js)
+
+// Storage backend, chosen at startup (server file or browser localStorage)
+var store = null;
 var logs_data = { logs: [] }; // Initialize with empty logs if no data loaded initially
 
 // Variables
@@ -21,7 +22,6 @@ var table_events = document.getElementById("table_events");
 var button_add_row = document.getElementById("addRow");
 var button_delete_row = document.getElementById("deleteRow");
 var button_edit_label = document.getElementById("editLabel");
-var state_buttons = document.querySelectorAll(".state-btn");
 var customStateInputs = document.querySelectorAll("#customStateInput");
 var customStateButtons = document.querySelectorAll("#setCustomState");
 var setStartTimeButton = document.getElementById("setStartTime");
@@ -38,32 +38,18 @@ let currentAction = null; // Currently selected action
 let currentTool = null; // Currently selected tool
 let actionToolPairs = []; // Array to store all added pairs
 
-// Initialize paths dynamically
-function initialization() {
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/initialize_html", true);
-    xhr.setRequestHeader("Content-type", "application/json");
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            try {
-                var response = JSON.parse(xhr.responseText);
-                json_path = response.json_path;
-                video_path = response.video_path;
-                video.src = video_path;
-
-                fetch(json_path)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        logs_data = data;
-                        populateLogsTable();
-                    })
-                    .catch((error) => console.error("Failed to load logs.", error));
-            } catch (error) {
-                console.error("Failed to initialize paths.", error);
-            }
-        }
-    };
-    xhr.send();
+// Pick the storage backend and load existing logs
+async function initialization() {
+    try {
+        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage);
+        console.info(`DevSelfTrace running in ${store.mode} mode.`);
+        const session = await store.load();
+        logs_data = session.data;
+        if (session.videoPath) video.src = session.videoPath;
+        populateLogsTable();
+    } catch (error) {
+        console.error("Failed to load logs.", error);
+    }
 }
 
 // Populate logs table
@@ -76,27 +62,21 @@ function populateLogsTable() {
             <th>Question 2</th>
             <th>Question 3</th>
         </tr>`;
+    const escape = DSTCore.escapeHtml;
     logs_data.logs.forEach((log, index) => {
-        const startTimestamp = formatTime(log.Timestamps.start);
-        const endTimestamp = formatTime(log.Timestamps.end);
+        const startTimestamp = DSTCore.formatTime(log.Timestamps.start);
+        const endTimestamp = DSTCore.formatTime(log.Timestamps.end);
 
         const row = table_events.insertRow();
         row.innerHTML = `
-            <td>${log.ID}</td>
+            <td>${escape(log.ID)}</td>
             <td>${startTimestamp} - ${endTimestamp}</td>
-            <td>${log.Label1 || "N/A"}</td>
-            <td>${log.Label2 || "N/A"}</td>
-            <td>${log.Label3 || "N/A"}</td>
+            <td>${escape(log.Label1 || "N/A")}</td>
+            <td>${escape(log.Label2 || "N/A")}</td>
+            <td>${escape(log.Label3 || "N/A")}</td>
         `;
     });
     autoSaveLogs(); // Auto-save logs after population
-}
-
-// Format seconds to [minutes:seconds] format
-function formatTime(seconds) {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = (seconds % 60).toFixed(0).padStart(2, "0");
-    return `${minutes}:${remainingSeconds}`;
 }
 
 // Highlight row during navigation
@@ -110,29 +90,6 @@ function highlightRow(index) {
         }
     });
 }
-
-// Event listeners for state buttons for Q1, Q2, and Q3
-document.querySelectorAll("[id^='label_state']").forEach((label, index) => {
-    const questionIndex = index + 1; // Q1, Q2, Q3, ...
-    const stateButtons = label.parentNode.querySelectorAll(".state-btn");
-    stateButtons.forEach((button) => {
-        button.addEventListener("click", () => {
-            const state = button.getAttribute("data-label");
-            switch (questionIndex) {
-                // case 1:
-                //     selectedStateQ1 = state;
-                //     break;
-                // case 2:
-                //     selectedStateQ2 = state;
-                //     break;
-                // case 3:
-                //     selectedStateQ3 = state;
-                //     break;
-            }
-            updateSelectedStatesDisplay();
-        });
-    });
-});
 
 // Custom state functionality for Q1, Q2, Q3
 customStateButtons.forEach((button, index) => {
@@ -160,16 +117,7 @@ customStateButtons.forEach((button, index) => {
 });
 
 function updateSelectedStatesDisplay() {
-    // Check if actionToolPairs array contains valid entries
-    const actionToolPairsText = actionToolPairs.length > 0 
-        ? actionToolPairs
-              .map(pair => {
-                  const action = pair[0] || "Undefined Action";
-                  const tool = pair[1] || "Undefined Tool";
-                  return `[${action}, ${tool}]`;
-              })
-              .join(", ")
-        : "None";
+    const actionToolPairsText = DSTCore.describeActionToolPairs(actionToolPairs);
 
     // Update the text area with selected states
     state_text.innerText = `
@@ -194,16 +142,8 @@ setEndTimeButton.onclick = function () {
 
 // Update the displayed times
 function updateSelectedTimes() {
-    document.getElementById("startTimeDisplay").innerText = `Start Time: ${formatTimeForDisplay(startTime)}`;
-    document.getElementById("endTimeDisplay").innerText = `End Time: ${formatTimeForDisplay(endTime)}`;
-}
-
-// Format time for display in mins:secs
-function formatTimeForDisplay(seconds) {
-    if (!seconds) return "None"; // Handle cases where time is not set
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.floor(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+    document.getElementById("startTimeDisplay").innerText = `Start Time: ${DSTCore.formatTimeForDisplay(startTime)}`;
+    document.getElementById("endTimeDisplay").innerText = `End Time: ${DSTCore.formatTimeForDisplay(endTime)}`;
 }
 
 // Add log row
@@ -229,15 +169,8 @@ button_add_row.onclick = function () {
         return;
     }
   
-    const newLog = {
-      ID: logs_data.logs.length + 1,
-      Timestamps: { start: startTime, end: endTime },
-      TimeInState: (endTime - startTime).toFixed(3),
-      Label1: selectedStateQ1 || "N/A",
-      Label2: `(${actionToolPairs.map((pair) => `[${pair[0]}, ${pair[1]}]`).join("; ")})`,
-      Label3: selectedStateQ3 || "N/A",
-    };
-  
+    const newLog = DSTCore.createLog(logs_data.logs, startTime, endTime, selectedStateQ1, actionToolPairs, selectedStateQ3);
+
     logs_data.logs.push(newLog);
     populateLogsTable();
   
@@ -279,16 +212,8 @@ button_edit_label.onclick = function () {
     const rowIndex = Array.from(table_events.rows).indexOf(selectedRow) - 1; // Adjust for header
     const log = logs_data.logs[rowIndex];
 
-    // Update the log with new selections
-    log.Label1 = selectedStateQ1 || log.Label1 || "N/A";
-
-    // Only update Label2 if actionToolPairs is not empty
-    if (actionToolPairs.length > 0) {
-        log.Label2 = `(${actionToolPairs.map((pair) => `[${pair[0]}, ${pair[1]}]`).join("; ")})`;
-    }
-
-    //Q3 Selection
-    log.Label3 = selectedStateQ3 || log.Label3 || "N/A";
+    // Update the log with new selections; empty fields keep their old value
+    DSTCore.applyEdit(log, selectedStateQ1, actionToolPairs, selectedStateQ3);
 
     populateLogsTable();
 
@@ -313,16 +238,11 @@ function deleteRow(index) {
 
 // Auto-save logs
 function autoSaveLogs() {
+    if (!store) return;
     console.log("Auto-saving logs...");
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "/update_json", true);
-    xhr.setRequestHeader("Content-type", "application/json");
-    xhr.onreadystatechange = function () {
-        if (xhr.readyState === 4 && xhr.status === 200) {
-            console.log("Logs auto-saved successfully!");
-        }
-    };
-    xhr.send(JSON.stringify(logs_data));
+    store.save(logs_data).then((ok) => {
+        if (ok) console.log("Logs auto-saved successfully!");
+    });
 }
 
 // AutoPlay functionality
