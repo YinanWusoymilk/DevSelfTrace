@@ -164,7 +164,7 @@ function loadRemoteVersion() {
     applyLabelset(checked && checked.ok ? checked.labelset : presetLabelset(DSTPresets.defaultId));
 }
 
-// ---- Export, import, new session -----------------------------------------------
+// ---- Export, import, start over -----------------------------------------------
 
 function downloadFile(name, text, type) {
     const blob = new Blob([text], { type: type });
@@ -228,16 +228,16 @@ function loadSessionText(text, source, done) {
 }
 
 // Clear the annotations (keeping the label set, which can then be changed)
-function startNewSession() {
+function startOver() {
     const count = session.intervals.length;
     if (count === 0) {
         resetSession();
         return;
     }
     const where = store.mode === "server" ? "the logs file (the previous version stays in its .bak backups)" : "this browser";
-    showBanner(`Start a new session? The ${count} current annotation(s) will be cleared from ${where}. Export them first to keep a copy.`, [
+    showBanner(`Start over? The ${count} current annotation(s) will be cleared from ${where}. Export them first to keep a copy.`, [
         ["Export JSON", exportJson],
-        ["Start new session", () => {
+        ["Start over", () => {
             hideBanner();
             resetSession();
         }],
@@ -264,7 +264,7 @@ document.getElementById("import-file").addEventListener("change", (event) => {
     event.target.value = "";
     if (file) importSession(file);
 });
-document.getElementById("new-session").addEventListener("click", startNewSession);
+document.getElementById("start-over").addEventListener("click", startOver);
 document.getElementById("load-sample").addEventListener("click", loadSample);
 
 // Another tab is already editing this session
@@ -272,7 +272,7 @@ function enterReadOnly() {
     readOnly = true;
     autosave.setReadOnly(true);
     const editingControls = [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton,
-        document.getElementById("import-json"), document.getElementById("new-session"), document.getElementById("load-sample")];
+        document.getElementById("import-json"), document.getElementById("start-over"), document.getElementById("load-sample")];
     editingControls.forEach((button) => {
         button.disabled = true;
         button.title = "Read-only: this session is open in another tab";
@@ -371,7 +371,7 @@ function applyLabelset(newLabelset) {
 // Switching is only allowed before the first annotation, so logs never mix label sets
 function switchLabelset(newLabelset) {
     if (session.intervals.length > 0) {
-        toast(`This session already has annotations made with the "${labelset.name}" label set. Export them and click "New session" to use a different label set.`, "error");
+        toast(`This session already has annotations made with the "${labelset.name}" label set. Export them and click "Start over" to use a different label set.`, "error");
         renderLabelsetPicker();
         return;
     }
@@ -409,7 +409,7 @@ function updateLabelsetLock() {
     labelsetLockNote.classList.toggle("hidden", !locked);
     if (locked) {
         labelsetLockNote.textContent = `Locked: this session already has annotations made with "${labelset.name}".`;
-        const why = "A session never mixes label sets, so the label set cannot change once there are annotations. To use another one, export the annotations and click \"New session\".";
+        const why = "A session never mixes label sets, so the label set cannot change once there are annotations. To use another one, export the annotations and click \"Start over\".";
         labelsetLockNote.title = why;
         labelsetSelect.title = why;
         labelsetLoadButton.title = why;

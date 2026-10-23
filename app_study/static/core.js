@@ -186,7 +186,7 @@
         if (hasLogs) {
             const current = stored || fallback;
             const warning = requested && !sameLabelset(requested, current)
-                ? `This session already has annotations made with the "${current.name}" label set, so "${requested.name}" was not applied. Start a new session to use it.`
+                ? `This session already has annotations made with the "${current.name}" label set, so "${requested.name}" was not applied. Click "Start over" to use it.`
                 : null;
             return { labelset: current, warning: warning };
         }
