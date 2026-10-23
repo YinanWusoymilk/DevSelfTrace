@@ -83,7 +83,7 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 - On the server, files are replaced in one step (never half-written), and the five previous versions are kept as `FILE.bak1` … `FILE.bak5`.
 - If a save fails (server stopped, browser storage full), it is retried and you can export a copy right away.
 
-**Session** buttons: *Export JSON* (can be imported again), *Export CSV* (one row per interval), *Import JSON* (continue from an exported file or an older DevSelfTrace file), *Start over…* (clears the annotations, offering an export first), *Load sample*.
+**Session** buttons: *Export JSON* (can be imported again), *Export CSV* (one row per interval), *Import JSON* (continue from an exported file or an older DevSelfTrace file), *Start over* (clears the annotations, offering an export first), *Load sample*.
 
 ## Label sets
 
@@ -95,7 +95,7 @@ A **label set** defines the questions: its dimensions, their options and hover e
 | [`cups.json`](labels/cups.json) | The 12 CodeRec User Programming States of Mozannar et al. (CHI'24), with their definitions; custom labels are off, as in CUPS. |
 | [`template.json`](labels/template.json) | A starting point for your own label set. |
 
-**Choosing a label set:** the *Label set* menu in the page, *Load from file…* for your own file, `?labels=cups` in the address (e.g. `.../app/?labels=cups`), or `server.py -l FILE`. The label set is saved with the annotations. Once a session has annotations its label set is locked, so a session never mixes label sets; use *Start over…* to switch.
+**Choosing a label set:** the *Label set* menu in the page, *Load from file* for your own file, `?labels=cups` in the address (e.g. `.../app/?labels=cups`), or `server.py -l FILE`. The label set is saved with the annotations. Once a session has annotations its label set is locked, so a session never mixes label sets; use *Start over* to switch.
 
 **Writing your own.** Copy `labels/template.json` and edit it. A minimal example:
 

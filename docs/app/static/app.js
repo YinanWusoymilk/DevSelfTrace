@@ -448,7 +448,7 @@ labelsetFileInput.addEventListener("change", async () => {
 // ---- Questions ---------------------------------------------------------------
 // One block per dimension of the label set: its name, question and optional help text, then a dropdown
 // ("single") or a row of dropdowns that adds pairs shown as removable chips ("pairs").
-// Where custom labels are allowed, the dropdown ends with "Other…", which opens a text box in place.
+// Where custom labels are allowed, the dropdown ends with "Other", which opens a text box in place.
 
 const OTHER = "__other__";
 
@@ -459,7 +459,7 @@ function element(tag, className, text) {
     return node;
 }
 
-// A dropdown, the text box for "Other…", and a line showing the chosen option's hint.
+// A dropdown, the text box for "Other", and a line showing the chosen option's hint.
 // onChange receives the chosen option, the typed text, or "" while nothing is chosen.
 function choiceControl(placeholder, options, allowCustom, label, onChange) {
     const wrap = element("div", "choice");
@@ -473,7 +473,7 @@ function choiceControl(placeholder, options, allowCustom, label, onChange) {
         if (option.hint) item.title = option.hint;
         select.appendChild(item);
     });
-    if (allowCustom) select.appendChild(new Option("Other… (type your own)", OTHER));
+    if (allowCustom) select.appendChild(new Option("Other (type your own)", OTHER));
 
     const other = element("input", "other-input hidden");
     other.type = "text";
