@@ -2,6 +2,7 @@
 
 Requests are sent straight to the Bottle WSGI app, so no server process is started.
 """
+import contextlib
 import io
 import json
 import os
@@ -94,6 +95,7 @@ class ServerTest(unittest.TestCase):
         info = json.loads(body)
         self.assertEqual(info["json_path"], "/files/json")
         self.assertIsNone(info["video_path"])
+        self.assertNotIn("labeled_so_far", info)  # left over from the CUPS tool; never used
 
     def test_initialize_reports_video_when_given(self):
         server.video_path = os.path.join(self.tmp, "p01_recording.mp4")
@@ -138,6 +140,31 @@ class ServerTest(unittest.TestCase):
             json.dump({"logs": []}, f)
         with self.assertRaises(ValueError):
             server.load_labelset(not_labels)
+
+    def test_a_missing_logs_file_is_an_error_without_create(self):
+        missing = os.path.join(self.tmp, "typo.json")
+        with self.assertRaises(FileNotFoundError):
+            server.prepare_logs_file(missing, create=False)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(server.main(["-p", missing]), 1)
+        self.assertIn("--create", out.getvalue())
+        self.assertFalse(os.path.exists(missing))
+
+    def test_create_starts_an_empty_session_but_never_replaces_one(self):
+        new_file = os.path.join(self.tmp, "data", "p01.json")  # the folder does not exist yet either
+        self.assertTrue(server.prepare_logs_file(new_file, create=True))
+        with open(new_file, encoding="utf-8") as f:
+            self.assertEqual(json.load(f), {"tool": "DevSelfTrace", "schemaVersion": 2, "intervals": []})
+
+        self.assertFalse(server.prepare_logs_file(self.json_file, create=True))
+        self.assertEqual(self.read_file(), SAMPLE)
+
+    def test_host_and_port_options(self):
+        args = server.parser.parse_args(["-p", "x.json"])
+        self.assertEqual((args.host, args.port, args.create), ("localhost", 8080, False))
+        args = server.parser.parse_args(["-p", "x.json", "--host", "0.0.0.0", "--port", "9000", "--create"])
+        self.assertEqual((args.host, args.port, args.create), ("0.0.0.0", 9000, True))
 
     def test_initialize_reports_an_unreadable_logs_file(self):
         with open(self.json_file, "w", encoding="utf-8") as f:

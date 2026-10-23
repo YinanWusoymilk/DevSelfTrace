@@ -45,7 +45,10 @@ var readOnly = false; // another tab is editing this session
 // Pick the storage backend and load existing logs
 async function initialization() {
     try {
-        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message));
+        // The hosted copy (docs/app) and pages opened from disk never have a server to ask
+        const declared = document.querySelector('meta[name="devselftrace-mode"]');
+        const mode = location.protocol === "file:" ? "browser" : declared ? declared.content : "auto";
+        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message), mode);
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
         const loaded = await store.load();
         // Older (v1) files are converted here; on the server the original was copied to <file>.v1.json at startup
@@ -180,13 +183,24 @@ function exportCsv() {
 
 // Replace the current annotations with those in an exported (or older DevSelfTrace) JSON file
 async function importSession(file) {
-    const result = DSTCore.parseSessionFile(await file.text(), presetLabelset(DSTPresets.defaultId));
+    loadSessionText(await file.text(), `"${file.name}"`, `Imported {n} annotation(s) from "${file.name}"`);
+}
+
+// Try DevSelfTrace without your own data: a made-up session (static/sample.js), not from any participant
+function loadSample() {
+    loadSessionText(JSON.stringify(DSTSample), "the sample session", "Loaded the sample session: {n} made-up annotations, not data from any participant");
+}
+
+// Replace the current annotations with a session read from JSON text.
+// done is the message shown afterwards; "{n}" becomes the number of annotations.
+function loadSessionText(text, source, done) {
+    const result = DSTCore.parseSessionFile(text, presetLabelset(DSTPresets.defaultId));
     if (!result.ok) {
-        alert(`"${file.name}" could not be imported: ${result.error}.`);
+        alert(`${source} could not be imported: ${result.error}.`);
         return;
     }
     const count = session.intervals.length;
-    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in "${file.name}"? Export the current ones first if you want to keep them.`)) {
+    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in ${source}? Export the current ones first if you want to keep them.`)) {
         return;
     }
     session = result.session;
@@ -195,7 +209,7 @@ async function importSession(file) {
     autoSaveLogs();
     const converted = result.converted ? " (converted from the older DevSelfTrace format)" : "";
     const notes = result.warnings.length > 0 ? ` Notes: ${result.warnings.join(" ")}` : "";
-    showBanner(`Imported ${session.intervals.length} annotation(s) from "${file.name}"${converted}.${notes}`, [["Dismiss", hideBanner]]);
+    showBanner(`${done.replace("{n}", session.intervals.length)}${converted}.${notes}`, [["Dismiss", hideBanner]]);
 }
 
 // Clear the annotations (keeping the label set, which can then be changed)
@@ -236,13 +250,14 @@ document.getElementById("import-file").addEventListener("change", (event) => {
     if (file) importSession(file);
 });
 document.getElementById("new-session").addEventListener("click", startNewSession);
+document.getElementById("load-sample").addEventListener("click", loadSample);
 
 // Another tab is already editing this session
 function enterReadOnly() {
     readOnly = true;
     autosave.setReadOnly(true);
     const editingControls = [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton,
-        document.getElementById("import-json"), document.getElementById("new-session")];
+        document.getElementById("import-json"), document.getElementById("new-session"), document.getElementById("load-sample")];
     editingControls.forEach((button) => {
         button.disabled = true;
         button.title = "Read-only: this session is open in another tab";
@@ -616,6 +631,7 @@ button_add_row.onclick = function () {
 
     // Record which video the session belongs to (the first time one is loaded)
     if (!session.video && currentVideo) session.video = currentVideo;
+    const overlaps = DSTCore.findOverlaps(session.intervals, startTime, endTime);
     const interval = DSTCore.createInterval(session.intervals, startTime, endTime, labelset, selection, session.lastId);
     session.lastId = interval.id;
     session.intervals.push(interval);
@@ -624,7 +640,12 @@ button_add_row.onclick = function () {
     autoSaveLogs();
 
     alert("Log added successfully!");
-  
+    // Overlaps are allowed (activities can overlap), but are often a slip, so point them out
+    if (overlaps.length > 0) {
+        const list = overlaps.map((other) => `#${other.id} (${DSTCore.formatTime(other.start)}–${DSTCore.formatTime(other.end)})`).join(", ");
+        showBanner(`The new interval #${interval.id} overlaps ${list}. It was added anyway; edit or delete it if that was not intended.`, [["Dismiss", hideBanner]]);
+    }
+
     // Reset times and answers
     startTime = null;
     endTime = null;
@@ -658,6 +679,8 @@ button_edit_label.onclick = function () {
     DSTCore.applyEdit(session.intervals[rowIndex], labelset, selection);
 
     populateLogsTable();
+    index_log = rowIndex;
+    highlightRow(rowIndex); // keep the edited row selected, e.g. for another edit
     autoSaveLogs();
 
     alert("Log edited successfully!");
@@ -668,6 +691,7 @@ button_edit_label.onclick = function () {
 // Delete log row
 function deleteRow(index) {
     session.intervals.splice(index, 1);
+    index_log = DSTCore.clampIndex(index_log, session.intervals.length); // never point past the last row
     populateLogsTable();
     autoSaveLogs();
     alert("Row deleted successfully!");
@@ -691,34 +715,48 @@ button_auto_play.onclick = function () {
 
 // Navigate events
 button_prev.onclick = function () {
-    if (index_log > 0) index_log--;
+    if (session.intervals.length === 0) return;
+    index_log = DSTCore.clampIndex(index_log - 1, session.intervals.length);
     navigateToLog(index_log);
     highlightRow(index_log);
 };
 
 button_next.onclick = function () {
-    if (index_log < session.intervals.length - 1) index_log++;
+    if (session.intervals.length === 0) return;
+    index_log = DSTCore.clampIndex(index_log + 1, session.intervals.length);
     navigateToLog(index_log);
     highlightRow(index_log);
 };
 
-// Replay event
+// Replay event: play the selected interval and pause at its end.
+// The end is checked in video time, so this also works at other playback speeds.
+var replayStopAt = null;
+
 button_replay.onclick = function () {
     if (session.intervals.length === 0) return;
+    index_log = DSTCore.clampIndex(index_log, session.intervals.length);
     const interval = session.intervals[index_log];
+    replayStopAt = interval.end;
     video.currentTime = interval.start;
-
-    // Play for the interval
     video.play();
-    setTimeout(() => {
-        video.pause();
-    }, (interval.end - interval.start) * 1000);
     highlightRow(index_log);
 };
 
+video.addEventListener("timeupdate", () => {
+    if (replayStopAt !== null && video.currentTime >= replayStopAt) {
+        replayStopAt = null;
+        video.pause();
+    }
+});
+video.addEventListener("pause", () => {
+    replayStopAt = null; // pausing by hand ends the replay
+});
+
 // Navigate to log
 function navigateToLog(index) {
-    video.currentTime = session.intervals[index].start;
+    const interval = session.intervals[index];
+    if (!interval) return;
+    video.currentTime = interval.start;
     video.pause(); // Pause video on navigate to allow for replay
 }
 
@@ -734,6 +772,7 @@ video.addEventListener("loadedmetadata", () => {
 // Update speed
 speed_slider.oninput = function () {
     video.playbackRate = parseFloat(speed_slider.value);
+    document.getElementById("speed_value").textContent = `${video.playbackRate}×`;
 };
 
 // Video upload functionality
@@ -748,10 +787,12 @@ loadVideoButton.addEventListener("click", () => {
     }
 
     const file = videoUploadInput.files[0];
+    if (video.src.startsWith("blob:")) URL.revokeObjectURL(video.src); // free the previously loaded video
     const fileURL = URL.createObjectURL(file);
     currentVideoName = file.name;
 
     video.src = fileURL; // Set the video source to the selected file
+    video.playbackRate = parseFloat(speed_slider.value); // keep the chosen speed
     alert("Video loaded successfully!");
 });
 

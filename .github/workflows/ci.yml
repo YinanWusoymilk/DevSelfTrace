@@ -26,5 +26,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install bottle==0.13.4
+      - run: pip install -r requirements.txt
       - run: python -m unittest discover -s tests/py -v
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t devselftrace .
+      - name: Start the container with an empty data folder
+        run: |
+          mkdir -p data
+          docker run -d --name devselftrace -p 8080:8080 -v "$PWD/data:/app/data" devselftrace
+          for i in $(seq 1 30); do curl -fsS http://localhost:8080/ > /dev/null && break; sleep 1; done
+      - name: The page loads and annotations are saved to the mounted folder
+        run: |
+          curl -fsS http://localhost:8080/ | grep -q "<title>DevSelfTrace</title>"
+          curl -fsS http://localhost:8080/static/app.js > /dev/null
+          curl -fsS -X POST http://localhost:8080/initialize_html | grep -q '"json_path"'
+          test -f data/session.json
+          curl -fsS -X POST -H "Content-Type: application/json" \
+            -d '{"revision": 0, "data": {"tool": "DevSelfTrace", "schemaVersion": 2, "intervals": [{"id": 1, "start": 0, "end": 5, "duration": 5}]}}' \
+            http://localhost:8080/save | grep -q '"success"'
+          grep -q '"revision": 1' data/session.json
+      - name: Container output
+        if: always()
+        run: docker logs devselftrace
