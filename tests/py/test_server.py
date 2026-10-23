@@ -231,6 +231,23 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.read_text(), before)
         self.assertEqual([n for n in os.listdir(self.tmp) if n.endswith(".tmp")], [])
 
+    def test_save_keeps_the_permissions_of_the_logs_file(self):
+        # The temporary file is created owner-only (0600); swapping it in must not make the logs
+        # unreadable for others, e.g. the host user when the server runs as root in Docker
+        for mode in (0o644, 0o640):
+            os.chmod(self.json_file, mode)
+            revision = self.read_file().get("revision", 0)
+            status, _ = self.save({"logs": []}, revision)
+            self.assertEqual(status, 200)
+            self.assertEqual(os.stat(self.json_file).st_mode & 0o777, mode)
+
+    def test_a_new_logs_file_gets_the_usual_permissions(self):
+        umask = os.umask(0)
+        os.umask(umask)
+        new_file = os.path.join(self.tmp, "new.json")
+        server.atomic_write_json(new_file, {"logs": []})
+        self.assertEqual(os.stat(new_file).st_mode & 0o777, 0o666 & ~umask)  # as if made with open()
+
     def test_save_over_an_unreadable_file_keeps_it_as_a_backup(self):
         with open(self.json_file, "w", encoding="utf-8") as f:
             f.write("{not json")
