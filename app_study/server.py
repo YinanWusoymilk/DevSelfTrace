@@ -50,6 +50,15 @@ def atomic_write_json(path, data):
             json.dump(data, outfile, indent=4)
             outfile.flush()
             os.fsync(outfile.fileno())
+        # mkstemp makes the file owner-only (0600); keep the permissions the logs file had (or a new
+        # file would get), so it stays readable, e.g. by the host user when the server runs in Docker
+        try:
+            mode = os.stat(path).st_mode & 0o777
+        except FileNotFoundError:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(tmp_path, mode)
         os.replace(tmp_path, path)
     except BaseException:
         if os.path.exists(tmp_path):
