@@ -4,6 +4,10 @@ venv/
 
 tool paper/
 
+# Annotation files (may hold participant data): keep them out of the repository
+data/
+app_study/data/
+
 # Common files and folders to ignore
 *.mp4
 *.log
