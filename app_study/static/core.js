@@ -26,23 +26,6 @@
         return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
     }
 
-    // Serialize action-tool pairs the way they are stored in Label2, e.g. "([A, T]; [A2, T2])"
-    function formatActionToolPairs(pairs) {
-        return `(${pairs.map((pair) => `[${pair[0]}, ${pair[1]}]`).join("; ")})`;
-    }
-
-    // Text for the "Selected States" box, e.g. "[A, T], [A2, T2]"
-    function describeActionToolPairs(pairs) {
-        if (pairs.length === 0) return "None";
-        return pairs
-            .map((pair) => {
-                const action = pair[0] || "Undefined Action";
-                const tool = pair[1] || "Undefined Tool";
-                return `[${action}, ${tool}]`;
-            })
-            .join(", ");
-    }
-
     // Escape text before it is inserted with innerHTML (custom labels are free text)
     function escapeHtml(value) {
         return String(value)
@@ -59,6 +42,7 @@
     // pairs of two fields, e.g. action + supporting tool). See labels/*.json.
 
     const ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
+    const RESERVED_KEYS = ["id", "start", "end", "duration"]; // interval fields; dimension ids become keys next to them
 
     function isText(value) {
         return typeof value === "string" && value.trim() !== "";
@@ -109,6 +93,8 @@
             }
             if (typeof dim.id !== "string" || !ID_PATTERN.test(dim.id)) {
                 errors.push(`${path}: "id" must start with a letter and contain only letters, digits, "-" or "_"`);
+            } else if (RESERVED_KEYS.includes(dim.id)) {
+                errors.push(`${path}: "id" cannot be ${RESERVED_KEYS.map((key) => `"${key}"`).join(", ")}`);
             } else if (ids.has(dim.id)) {
                 errors.push(`${path}: duplicate id "${dim.id}"`);
             }
@@ -190,72 +176,234 @@
         return { labelset: requested || stored || fallback, warning: null };
     }
 
-    // ---- Annotations -------------------------------------------------------------
-    // selection maps a dimension id to the chosen option (single) or a list of [a, b] pairs.
+    // ---- Annotations (session format v2) ----------------------------------------
+    // A session is
+    //   { tool: "DevSelfTrace", schemaVersion: 2, revision, labelset, video: { name, duration },
+    //     lastId (highest interval ID ever given), intervals: [...] }
+    // and every interval stores one key per dimension id, e.g. with S-IASE:
+    //   { id: 3, start: 95.248, end: 190.112, duration: 94.864,
+    //     intention: "To Implement Code",
+    //     actions: [{ action: "Writing New Code", tool: "AI Tools" }],
+    //     emotion: "Positive" }
+    // A "single" answer is a string; a "pairs" answer is a list of objects keyed by field id,
+    // with null for an optional field left empty.
+    // selection (the answers being chosen in the page) uses the same shapes.
+
+    const SCHEMA_VERSION = 2;
+
+    function emptySession() {
+        return { tool: "DevSelfTrace", schemaVersion: SCHEMA_VERSION, intervals: [] };
+    }
 
     function hasAnswer(dimension, value) {
         if (dimension.type === "pairs") return Array.isArray(value) && value.length > 0;
-        return isText(value) && value !== "N/A";
+        return isText(value);
     }
 
-    function formatAnswer(dimension, value) {
-        if (dimension.type === "pairs") return formatActionToolPairs(value || []);
-        return value || "N/A";
-    }
-
-    // True when every dimension has an answer (required before adding a log)
+    // True when every dimension has an answer (required before adding an interval)
     function isSelectionComplete(labelset, selection) {
         return labelset.dimensions.every((dim) => hasAnswer(dim, selection[dim.id]));
     }
 
-    // Build a new log entry; dimension i is stored as Label<i+1>
-    function createLog(logs, startTime, endTime, labelset, selection) {
-        const log = {
-            ID: logs.length + 1,
-            Timestamps: { start: startTime, end: endTime },
-            TimeInState: (endTime - startTime).toFixed(3),
-        };
-        labelset.dimensions.forEach((dim, i) => {
-            log[`Label${i + 1}`] = formatAnswer(dim, selection[dim.id]);
-        });
-        return log;
+    // IDs are never reused, even after deletions: lastId (saved with the session) is the highest ID ever given
+    function nextId(intervals, lastId) {
+        return intervals.reduce((max, interval) => Math.max(max, interval.id || 0), lastId || 0) + 1;
     }
 
-    // Apply an edit to an existing log; dimensions left unanswered keep their old value
-    function applyEdit(log, labelset, selection) {
-        labelset.dimensions.forEach((dim, i) => {
-            const key = `Label${i + 1}`;
-            if (hasAnswer(dim, selection[dim.id])) {
-                log[key] = formatAnswer(dim, selection[dim.id]);
-            } else if (!log[key]) {
-                log[key] = "N/A";
-            }
+    function roundSeconds(seconds) {
+        return Math.round(seconds * 1000) / 1000;
+    }
+
+    function copyAnswer(dimension, value) {
+        if (dimension.type === "pairs") return value.map((pair) => Object.assign({}, pair));
+        return value;
+    }
+
+    // Build a new interval from the current selection
+    function createInterval(intervals, startTime, endTime, labelset, selection, lastId) {
+        const interval = {
+            id: nextId(intervals, lastId),
+            start: startTime,
+            end: endTime,
+            duration: roundSeconds(endTime - startTime),
+        };
+        labelset.dimensions.forEach((dim) => {
+            interval[dim.id] = hasAnswer(dim, selection[dim.id]) ? copyAnswer(dim, selection[dim.id]) : null;
         });
-        return log;
+        return interval;
+    }
+
+    // Apply an edit to an existing interval; dimensions left unanswered keep their old value
+    function applyEdit(interval, labelset, selection) {
+        labelset.dimensions.forEach((dim) => {
+            if (hasAnswer(dim, selection[dim.id])) interval[dim.id] = copyAnswer(dim, selection[dim.id]);
+        });
+        return interval;
+    }
+
+    // Keep intervals in video order
+    function sortIntervals(intervals) {
+        return intervals.sort((a, b) => a.start - b.start || a.id - b.id);
+    }
+
+    // Text for one answer in the logs table, e.g. "[Writing New Code, AI Tools]; [Search, —]"
+    function formatValue(dimension, value) {
+        if (dimension.type === "pairs") {
+            if (!Array.isArray(value) || value.length === 0) return "—";
+            return value
+                .map((pair) => `[${dimension.fields.map((field) => pair[field.id] || "—").join(", ")}]`)
+                .join("; ");
+        }
+        return isText(value) ? value : "—";
     }
 
     // One-line summary of the current selection, e.g. "Q1: x, Q2: [a, b], Q3: None"
     function describeSelection(labelset, selection) {
         return labelset.dimensions
-            .map((dim, i) => {
-                const value = selection[dim.id];
-                const text = dim.type === "pairs" ? describeActionToolPairs(value || []) : value || "None";
-                return `Q${i + 1}: ${text}`;
-            })
+            .map((dim, i) => `Q${i + 1}: ${hasAnswer(dim, selection[dim.id]) ? formatValue(dim, selection[dim.id]) : "None"}`)
             .join(", ");
     }
 
+    // ---- Older files (format v1) ---------------------------------------------------
+    // DevSelfTrace v1 (used in the FSE'26 study) saved
+    //   { logs: [{ ID, Timestamps: { start, end }, TimeInState, Label1, Label2, Label3 }] }
+    // where Label<i> is the answer to dimension i and a pairs answer is a string such as
+    //   "([Writing New Code, AI Tools]; [Search, null])"
+    // scripts/convert_v1_to_v2.py does the same conversion for batches of files.
+
+    function isV1Session(data) {
+        return Boolean(data) && Array.isArray(data.logs) && !Array.isArray(data.intervals);
+    }
+
+    function optionValues(options) {
+        return new Set((options || []).map((option) => (typeof option === "string" ? option : option.value)));
+    }
+
+    // Split "A, T" into its two fields. Custom labels may themselves contain ", ", so prefer the
+    // split where the first part is a known first-field option, else where the second part is a
+    // known second-field option (or "null"), else the last ", ".
+    function splitV1Pair(text, dimension) {
+        const firstKnown = optionValues(dimension.fields[0].options);
+        const secondKnown = optionValues(dimension.fields[1].options);
+        const cuts = [];
+        for (let i = text.indexOf(", "); i !== -1; i = text.indexOf(", ", i + 1)) cuts.push(i);
+        if (cuts.length === 0) return { parts: [text, null], ambiguous: false };
+        const at = (i) => [text.slice(0, i), text.slice(i + 2)];
+        const byFirst = cuts.find((i) => firstKnown.has(text.slice(0, i)));
+        if (byFirst !== undefined) return { parts: at(byFirst), ambiguous: false };
+        const bySecond = cuts.find((i) => {
+            const second = text.slice(i + 2);
+            return second === "null" || secondKnown.has(second);
+        });
+        if (bySecond !== undefined) return { parts: at(bySecond), ambiguous: false };
+        return { parts: at(cuts[cuts.length - 1]), ambiguous: cuts.length > 1 };
+    }
+
+    // Parse a v1 pairs string into [{ <field0>: a, <field1>: b }, ...]
+    function parseV1Pairs(text, dimension) {
+        const result = { pairs: [], ambiguous: [] };
+        if (!isText(text) || text === "N/A") return result;
+        let body = text.trim();
+        if (body.startsWith("(") && body.endsWith(")")) body = body.slice(1, -1).trim();
+        if (body.startsWith("[")) body = body.slice(1);
+        if (body.endsWith("]")) body = body.slice(0, -1);
+        if (body === "") return result;
+        body.split("]; [").forEach((pairText) => {
+            const split = splitV1Pair(pairText, dimension);
+            const pair = {};
+            dimension.fields.forEach((field, i) => {
+                const value = split.parts[i];
+                pair[field.id] = value === undefined || value === null || value === "null" || value === "" ? null : value;
+            });
+            result.pairs.push(pair);
+            if (split.ambiguous) result.ambiguous.push({ text: pairText, pair: pair });
+        });
+        return result;
+    }
+
+    // Convert a v1 session. labelset is the label set the logs were made with
+    // (the one saved in the file by DevSelfTrace 2 previews, else the default S-IASE).
+    function convertV1(data, labelset) {
+        const warnings = [];
+        const session = emptySession();
+        if (typeof data.revision === "number") session.revision = data.revision;
+        session.labelset = labelset;
+        const seen = new Set();
+        const needNewId = []; // missing or repeated IDs (older versions could repeat an ID after a deletion)
+
+        data.logs.forEach((log, n) => {
+            const timestamps = log.Timestamps || {};
+            const start = Number(timestamps.start);
+            const end = Number(timestamps.end);
+            const interval = { id: log.ID, start: start, end: end, duration: roundSeconds(end - start) };
+            labelset.dimensions.forEach((dim, i) => {
+                const raw = log[`Label${i + 1}`];
+                if (dim.type === "pairs") {
+                    const parsed = parseV1Pairs(raw, dim);
+                    interval[dim.id] = parsed.pairs.length > 0 ? parsed.pairs : null;
+                    parsed.ambiguous.forEach((item) => {
+                        const reading = dim.fields.map((field) => `${field.label.toLowerCase()} "${item.pair[field.id]}"`).join(" + ");
+                        warnings.push(`Log ${log.ID}: "[${item.text}]" can be split more than one way; read as ${reading}.`);
+                    });
+                } else {
+                    interval[dim.id] = isText(raw) && raw !== "N/A" ? raw : null;
+                }
+            });
+            if (!Number.isInteger(interval.id) || seen.has(interval.id)) {
+                needNewId.push(interval);
+                warnings.push(`Log ${n + 1} (ID ${JSON.stringify(log.ID)}) had a missing or repeated ID; it was given a new one.`);
+            } else {
+                seen.add(interval.id);
+            }
+            session.intervals.push(interval);
+        });
+        let maxId = Math.max(0, ...seen);
+        needNewId.forEach((interval) => {
+            maxId += 1;
+            interval.id = maxId;
+        });
+        session.lastId = maxId;
+        sortIntervals(session.intervals);
+        return { session: session, warnings: warnings };
+    }
+
+    // Accept whatever a file or the browser holds and return a v2 session.
+    //   labelsetForV1 - label set to read v1 logs with when the file does not name one
+    // Returns { session, converted, warnings }.
+    function normalizeSession(data, labelsetForV1) {
+        if (!data || typeof data !== "object") return { session: emptySession(), converted: false, warnings: [] };
+        if (isV1Session(data)) {
+            let labelset = labelsetForV1;
+            if (data.labelset) {
+                const checked = validateLabelset(data.labelset);
+                if (checked.ok) labelset = checked.labelset;
+            }
+            const result = convertV1(data, labelset);
+            return { session: result.session, converted: true, warnings: result.warnings };
+        }
+        const session = Object.assign(emptySession(), data);
+        if (!Array.isArray(session.intervals)) session.intervals = [];
+        return { session: session, converted: false, warnings: [] };
+    }
+
     return {
+        SCHEMA_VERSION: SCHEMA_VERSION,
         formatTime: formatTime,
         formatTimeForDisplay: formatTimeForDisplay,
-        formatActionToolPairs: formatActionToolPairs,
-        describeActionToolPairs: describeActionToolPairs,
         escapeHtml: escapeHtml,
         validateLabelset: validateLabelset,
         resolveLabelset: resolveLabelset,
+        emptySession: emptySession,
         isSelectionComplete: isSelectionComplete,
-        createLog: createLog,
+        nextId: nextId,
+        createInterval: createInterval,
         applyEdit: applyEdit,
+        sortIntervals: sortIntervals,
+        formatValue: formatValue,
         describeSelection: describeSelection,
+        isV1Session: isV1Session,
+        parseV1Pairs: parseV1Pairs,
+        convertV1: convertV1,
+        normalizeSession: normalizeSession,
     };
 });

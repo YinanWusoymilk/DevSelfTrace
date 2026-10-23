@@ -1,0 +1,9 @@
+{
+    "logs": [
+        {"ID": 1, "Timestamps": {"start": 0, "end": 12.5}, "TimeInState": "12.500", "Label1": "To Understand Context", "Label2": "([Reading and Comprehension, IDE])", "Label3": "Neutral"},
+        {"ID": 2, "Timestamps": {"start": 12.5, "end": 30.25}, "TimeInState": "17.750", "Label1": "To Implement Code", "Label2": "([Writing New Code, AI Tools]; [Search, null])", "Label3": "N/A"},
+        {"ID": 2, "Timestamps": {"start": 30.25, "end": 41}, "TimeInState": "10.750", "Label1": "custom, with comma", "Label2": "([Foo, bar, baz]; [Search, Slack, Teams]; [Reading docs, then coding, IDE])", "Label3": "Negative"},
+        {"ID": 5, "Timestamps": {"start": 50, "end": 55}, "TimeInState": "5.000", "Label1": "To Resolve Errors", "Label2": "()", "Label3": "Slightly Negative"},
+        {"ID": 4, "Timestamps": {"start": 41, "end": 50}, "TimeInState": "9.000", "Label1": "N/A", "Label2": "([Executing the Code, Not using any tools])", "Label3": "Positive"}
+    ]
+}

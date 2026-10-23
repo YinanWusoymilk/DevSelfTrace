@@ -112,6 +112,7 @@ def initialize_html():
         data_json = {
             'json_path': json_url,
             'video_path': video_url,
+            'video_name': os.path.basename(video_path) if video_path else None,
             'labeled_so_far': labeled_so_far,
             'labelset': labelset
         }
@@ -147,6 +148,23 @@ class Demo(object):
         while self.close_thread:
             sleep(0.01)
 
+def keep_v1_copy(path):
+    """If path holds annotations in the old v1 format ({"logs": [...]}), copy it to
+    <name>.v1.json before the page converts it to v2. Returns the copy's path, or None."""
+    try:
+        with open(path, encoding='utf-8') as fl:
+            data = json.load(fl)
+    except (OSError, ValueError):
+        return None
+    is_v1 = isinstance(data, dict) and isinstance(data.get('logs'), list) and 'intervals' not in data
+    if not is_v1 or not data['logs']:
+        return None  # nothing to keep
+    root, _ = os.path.splitext(path)
+    copy_path = f"{root}.v1.json"
+    if not os.path.exists(copy_path):
+        shutil.copy2(path, copy_path)
+    return copy_path
+
 def load_labelset(path):
     """Read a label set JSON file (see labels/). Full checks happen in the page."""
     with open(path, encoding='utf-8') as fl:
@@ -175,6 +193,9 @@ def main():
             raise FileNotFoundError(f"Video file not found: {video_path}")
         if args.labels:
             labelset = load_labelset(os.path.abspath(args.labels))
+        v1_copy = keep_v1_copy(json_path)
+        if v1_copy:
+            print(f"{json_path} uses the old v1 format; the page will convert it. The original is kept as {v1_copy}")
 
         Demo()
     except Exception as e:

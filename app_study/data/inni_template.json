@@ -1,3 +1,5 @@
 {
-    "logs": []
+    "tool": "DevSelfTrace",
+    "schemaVersion": 2,
+    "intervals": []
 }

@@ -21,7 +21,7 @@
     const BROWSER_KEY = "devselftrace:session";
 
     function emptySession() {
-        return { logs: [] };
+        return { tool: "DevSelfTrace", schemaVersion: 2, intervals: [] };
     }
 
     function revisionOf(data) {
@@ -40,6 +40,7 @@
                     data: data,
                     revision: revisionOf(data),
                     videoPath: info.video_path || null,
+                    videoName: info.video_name || null,
                     labelset: info.labelset || null, // from server.py --labels
                 };
             },
@@ -84,7 +85,7 @@
                 } catch (error) {
                     console.error("Failed to read saved logs from the browser.", error);
                 }
-                return { data: data, revision: revisionOf(data), videoPath: null, labelset: null };
+                return { data: data, revision: revisionOf(data), videoPath: null, videoName: null, labelset: null };
             },
 
             async write(data, baseRevision) {

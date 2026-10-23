@@ -4,7 +4,9 @@
 var store = null;
 var autosave = null; // debounced, conflict-checked saving (DSTStorage.createAutosave)
 var tabLock = null; // only one tab may edit a session at a time
-var logs_data = { logs: [] }; // Initialize with empty logs if no data loaded initially
+var session = DSTCore.emptySession(); // the annotations being edited (format v2, see core.js)
+var currentVideoName = null; // file name of the loaded video
+var currentVideo = null; // { name, duration } of the loaded video, saved with the session when an interval is added
 
 // Variables
 var index_log = 0;
@@ -45,16 +47,26 @@ async function initialization() {
     try {
         store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message));
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
-        const session = await store.load();
-        logs_data = session.data;
-        if (session.videoPath) video.src = session.videoPath;
+        const loaded = await store.load();
+        // Older (v1) files are converted here; on the server the original was copied to <file>.v1.json at startup
+        const normalized = DSTCore.normalizeSession(loaded.data, presetLabelset(DSTPresets.defaultId));
+        session = normalized.session;
+        if (loaded.videoPath) video.src = loaded.videoPath;
+        currentVideoName = loaded.videoName;
         autosave = DSTStorage.createAutosave(store, {
-            revision: session.revision,
-            getData: () => logs_data,
+            revision: loaded.revision,
+            getData: () => session,
             onStatus: showSaveStatus,
         });
         showSaveStatus({ state: "saved", at: null });
-        chooseInitialLabelset(session.labelset);
+        chooseInitialLabelset(loaded.labelset);
+
+        if (normalized.converted && session.intervals.length > 0) {
+            autoSaveLogs(); // store the converted (v2) version
+            const kept = store.mode === "server" ? " The original file was kept next to it with the ending .v1.json." : "";
+            const notes = normalized.warnings.length > 0 ? ` Notes: ${normalized.warnings.join(" ")}` : "";
+            showBanner(`These annotations were saved by an older version of DevSelfTrace and have been converted to the current format.${kept}${notes}`, [["Dismiss", hideBanner]]);
+        }
 
         tabLock = DSTStorage.createTabLock("devselftrace:session", {
             onReleased: () => showBanner("The other tab was closed. Reload this tab to edit here.", [["Reload", () => location.reload()]]),
@@ -75,7 +87,7 @@ function showSaveStatus(status) {
         case "saved":
             text = status.at ? `Saved ${where} · ${status.at.toLocaleTimeString()}` : `All changes saved ${where}`;
             level = "ok";
-            hideBanner();
+            if (saveBannerEl.dataset.kind === "save") hideBanner(); // the save problem is over; other notices stay
             break;
         case "pending":
             text = "Unsaved changes…";
@@ -90,7 +102,7 @@ function showSaveStatus(status) {
                 showBanner(`Could not save your annotations: ${status.message} Your work is still in this page.`, [
                     ["Retry now", () => autosave.flush()],
                     ["Export a backup", exportBackup],
-                ]);
+                ], "save");
             } else {
                 text = status.message;
             }
@@ -102,7 +114,7 @@ function showSaveStatus(status) {
                 ["Load their version", loadRemoteVersion],
                 ["Keep mine", () => autosave.overwrite()],
                 ["Export mine", exportBackup],
-            ]);
+            ], "save");
             break;
         case "readonly":
             text = "Read-only";
@@ -113,8 +125,10 @@ function showSaveStatus(status) {
     saveStatusEl.className = `save-status ${level}`;
 }
 
-// Banner with a message and action buttons (actions: [label, handler] pairs)
-function showBanner(message, actions) {
+// Banner with a message and action buttons (actions: [label, handler] pairs).
+// kind "save" marks a save problem, which a later successful save clears; other notices stay until dismissed.
+function showBanner(message, actions, kind) {
+    saveBannerEl.dataset.kind = kind || "info";
     saveBannerEl.replaceChildren();
     const text = document.createElement("span");
     text.textContent = message;
@@ -136,16 +150,16 @@ function hideBanner() {
 function loadRemoteVersion() {
     const conflict = autosave.getConflict();
     if (!conflict) return; // already resolved
-    logs_data = conflict.data;
+    session = conflict.data;
     autosave.acceptRemote();
     // The other version may use a different label set
-    const checked = logs_data.labelset ? DSTCore.validateLabelset(logs_data.labelset) : null;
+    const checked = session.labelset ? DSTCore.validateLabelset(session.labelset) : null;
     applyLabelset(checked && checked.ok ? checked.labelset : presetLabelset(DSTPresets.defaultId));
 }
 
 // Download the current annotations as a JSON file
 function exportBackup() {
-    const blob = new Blob([JSON.stringify(logs_data, null, 4)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(session, null, 4)], { type: "application/json" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `devselftrace_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
@@ -180,7 +194,7 @@ window.addEventListener("pagehide", () => {
 // Populate logs table
 function populateLogsTable() {
     if (!labelset) return;
-    // One column per dimension of the label set; dimension i is stored as Label<i+1>
+    // One column per dimension of the label set
     const headers = labelset.dimensions.map((dim, i) => `<th>Question ${i + 1}</th>`).join("");
     table_events.innerHTML = `
         <tr>
@@ -189,14 +203,14 @@ function populateLogsTable() {
             ${headers}
         </tr>`;
     const escape = DSTCore.escapeHtml;
-    logs_data.logs.forEach((log, index) => {
-        const startTimestamp = DSTCore.formatTime(log.Timestamps.start);
-        const endTimestamp = DSTCore.formatTime(log.Timestamps.end);
-        const cells = labelset.dimensions.map((dim, i) => `<td>${escape(log[`Label${i + 1}`] || "N/A")}</td>`).join("");
+    session.intervals.forEach((interval) => {
+        const startTimestamp = DSTCore.formatTime(interval.start);
+        const endTimestamp = DSTCore.formatTime(interval.end);
+        const cells = labelset.dimensions.map((dim) => `<td>${escape(DSTCore.formatValue(dim, interval[dim.id]))}</td>`).join("");
 
         const row = table_events.insertRow();
         row.innerHTML = `
-            <td>${escape(log.ID)}</td>
+            <td>${escape(interval.id)}</td>
             <td>${startTimestamp} - ${endTimestamp}</td>
             ${cells}
         `;
@@ -231,13 +245,13 @@ function chooseInitialLabelset(serverLabelset) {
     }
 
     let stored = null;
-    if (logs_data.labelset) {
-        const checked = DSTCore.validateLabelset(logs_data.labelset);
+    if (session.labelset) {
+        const checked = DSTCore.validateLabelset(session.labelset);
         if (checked.ok) stored = checked.labelset;
         else problems.push("The label set saved with this session is not valid; showing the default label set.");
     }
 
-    const choice = DSTCore.resolveLabelset(stored, requested, logs_data.logs.length > 0, fallback);
+    const choice = DSTCore.resolveLabelset(stored, requested, session.intervals.length > 0, fallback);
     if (choice.warning) problems.push(choice.warning);
     applyLabelset(choice.labelset);
     if (problems.length > 0) showBanner(problems.join(" "), [["Dismiss", hideBanner]]);
@@ -246,7 +260,7 @@ function chooseInitialLabelset(serverLabelset) {
 // Use a label set: rebuild the questions, the picker and the table. It is saved with the session.
 function applyLabelset(newLabelset) {
     labelset = newLabelset;
-    logs_data.labelset = newLabelset;
+    session.labelset = newLabelset;
     renderQuestions();
     renderLabelsetPicker();
     populateLogsTable();
@@ -254,7 +268,7 @@ function applyLabelset(newLabelset) {
 
 // Switching is only allowed before the first annotation, so logs never mix label sets
 function switchLabelset(newLabelset) {
-    if (logs_data.logs.length > 0) {
+    if (session.intervals.length > 0) {
         alert(`This session already has annotations made with the "${labelset.name}" label set. Export them and start a new session to use a different label set.`);
         renderLabelsetPicker();
         return;
@@ -287,7 +301,7 @@ function renderLabelsetPicker() {
 
 // Once a session has annotations its label set is fixed; show that instead of letting the picker snap back
 function updateLabelsetLock() {
-    const locked = logs_data.logs.length > 0;
+    const locked = session.intervals.length > 0;
     labelsetSelect.disabled = locked || readOnly;
     labelsetLoadButton.disabled = locked || readOnly;
     labelsetLockNote.classList.toggle("hidden", !locked);
@@ -443,9 +457,10 @@ function renderPairsQuestion(block, dim) {
             alert(`Please select ${missing.label.toLowerCase()}.`);
             return;
         }
-        const pair = dim.fields.map((field) => draft[field.id] || "null"); // optional fields left empty are stored as "null"
+        const pair = {};
+        dim.fields.forEach((field) => (pair[field.id] = draft[field.id] || null)); // optional fields left empty are null
         selection[dim.id] = (selection[dim.id] || []).concat([pair]);
-        list.appendChild(element("li", "", `[${pair[0]}, ${pair[1]}]`));
+        list.appendChild(element("li", "", DSTCore.formatValue(dim, [pair])));
         updateSelectedStatesDisplay();
 
         pairDrafts[dim.id] = {};
@@ -527,9 +542,12 @@ button_add_row.onclick = function () {
         return;
     }
 
-    const newLog = DSTCore.createLog(logs_data.logs, startTime, endTime, labelset, selection);
-
-    logs_data.logs.push(newLog);
+    // Record which video the session belongs to (the first time one is loaded)
+    if (!session.video && currentVideo) session.video = currentVideo;
+    const interval = DSTCore.createInterval(session.intervals, startTime, endTime, labelset, selection, session.lastId);
+    session.lastId = interval.id;
+    session.intervals.push(interval);
+    DSTCore.sortIntervals(session.intervals);
     populateLogsTable();
     autoSaveLogs();
 
@@ -564,10 +582,8 @@ button_edit_label.onclick = function () {
     }
 
     const rowIndex = Array.from(table_events.rows).indexOf(selectedRow) - 1; // Adjust for header
-    const log = logs_data.logs[rowIndex];
-
-    // Update the log with new selections; empty fields keep their old value
-    DSTCore.applyEdit(log, labelset, selection);
+    // Update the interval with new selections; empty fields keep their old value
+    DSTCore.applyEdit(session.intervals[rowIndex], labelset, selection);
 
     populateLogsTable();
     autoSaveLogs();
@@ -579,7 +595,7 @@ button_edit_label.onclick = function () {
 
 // Delete log row
 function deleteRow(index) {
-    logs_data.logs.splice(index, 1);
+    session.intervals.splice(index, 1);
     populateLogsTable();
     autoSaveLogs();
     alert("Row deleted successfully!");
@@ -609,31 +625,39 @@ button_prev.onclick = function () {
 };
 
 button_next.onclick = function () {
-    if (index_log < logs_data.logs.length - 1) index_log++;
+    if (index_log < session.intervals.length - 1) index_log++;
     navigateToLog(index_log);
     highlightRow(index_log);
 };
 
 // Replay event
 button_replay.onclick = function () {
-    if (logs_data.logs.length === 0) return;
-    const log = logs_data.logs[index_log];
-    video.currentTime = log.Timestamps.start;
+    if (session.intervals.length === 0) return;
+    const interval = session.intervals[index_log];
+    video.currentTime = interval.start;
 
     // Play for the interval
     video.play();
     setTimeout(() => {
         video.pause();
-    }, (log.Timestamps.end - log.Timestamps.start) * 1000);
+    }, (interval.end - interval.start) * 1000);
     highlightRow(index_log);
 };
 
 // Navigate to log
 function navigateToLog(index) {
-    const log = logs_data.logs[index];
-    video.currentTime = log.Timestamps.start;
+    video.currentTime = session.intervals[index].start;
     video.pause(); // Pause video on navigate to allow for replay
 }
+
+// Remember which video is loaded; warn if it is not the one these annotations were made on
+video.addEventListener("loadedmetadata", () => {
+    if (!currentVideoName) return;
+    currentVideo = { name: currentVideoName, duration: Math.round(video.duration * 1000) / 1000 };
+    if (session.video && session.intervals.length > 0 && session.video.name !== currentVideo.name) {
+        showBanner(`These annotations were made on "${session.video.name}", but the video you loaded is "${currentVideo.name}".`, [["Dismiss", hideBanner]]);
+    }
+});
 
 // Update speed
 speed_slider.oninput = function () {
@@ -653,6 +677,7 @@ loadVideoButton.addEventListener("click", () => {
 
     const file = videoUploadInput.files[0];
     const fileURL = URL.createObjectURL(file);
+    currentVideoName = file.name;
 
     video.src = fileURL; // Set the video source to the selected file
     alert("Video loaded successfully!");
