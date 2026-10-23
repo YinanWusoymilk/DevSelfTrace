@@ -50,8 +50,10 @@
     .pair-row { display: flex; gap: 8px; align-items: flex-end; }
     .pair-field { flex: 1 1 0; min-width: 0; }
     .field-label { margin-bottom: 3px; color: #555; font-size: 12px; }
-    .pair-field .dimension-select { padding: 6px 4px; font-size: 13px; }
-    .pair-add { flex: 0 0 auto; padding: 7px 12px; border: none; border-radius: 5px; background: #356a96; color: #fff; font-weight: 600; cursor: pointer; }
+    /* Menus and "+ Add" share one height and no bottom margin (the template gives selects one),
+       so the button sits level with the menus */
+    .pair-field .dimension-select { box-sizing: border-box; height: 32px; margin-bottom: 0; padding: 6px 4px; font-size: 13px; }
+    .pair-add { box-sizing: border-box; height: 32px; flex: 0 0 auto; padding: 0 12px; border: none; border-radius: 5px; background: #356a96; color: #fff; font-weight: 600; cursor: pointer; }
     .pair-add:hover { background: #1e2761; }
     .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 14px; background: #f1e6ec; color: #5a1836; font-size: 13px; }
