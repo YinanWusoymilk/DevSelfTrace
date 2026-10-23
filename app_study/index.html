@@ -2,16 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" dir="ltr">
 
 <head>
-  <!-- Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
-  <link rel="stylesheet" href="https://cdn.rawgit.com/jpswalsh/academicons/master/css/academicons.min.css" />
   <link rel="icon" type="image/x-icon" href="static/favicon.ico">
   <link rel="stylesheet" href="static/demo_open.css">
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
   <meta name="description" content="" />
   <meta name="keywords" content="" />
   <meta name="author" content="" />
-  <title>Programming Video Analysis Tool</title>
+  <title>DevSelfTrace</title>
   <style>
 
     .highlighted-row {
@@ -150,10 +147,58 @@
     .content-section {
       padding: 10px;
     }
+
+    /* Save status (top right) and save problems banner */
+    .save-status {
+      position: fixed;
+      top: 8px;
+      right: 12px;
+      z-index: 1000;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font: 12px/1.4 sans-serif;
+      background: #e8e8e8;
+      color: #333;
+    }
+
+    .save-status.ok { background: #d1e7dd; color: #0f5132; }
+    .save-status.error { background: #f8d7da; color: #842029; }
+    .save-status.readonly { background: #cfe2ff; color: #084298; }
+
+    /* In the page flow (not floating), so it never covers the controls */
+    .save-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin: 36px 1em 8px;
+      padding: 10px 14px;
+      border: 1px solid #ffecb5;
+      border-radius: 6px;
+      background: #fff3cd;
+      color: #664d03;
+      font: 14px/1.4 sans-serif;
+    }
+
+    .save-banner.hidden { display: none; }
+
+    .save-banner button {
+      padding: 4px 10px;
+      border: 1px solid #997404;
+      border-radius: 4px;
+      background: #fff;
+      color: #664d03;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 
 <body>
+  <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
+  <div id="save-banner" class="save-banner hidden" role="alert"></div>
+
   <div class="main">
     <div class="section">
       <div class="section-content">
@@ -398,11 +443,9 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.0.1/jquery.min.js"></script>
-  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"
-    integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-    crossorigin="anonymous"></script>
-  <script src="static/code_labels.js"></script>
+  <script src="static/core.js"></script>
+  <script src="static/storage.js"></script>
+  <script src="static/app.js"></script>
 
   <script>
     // JavaScript for toggling views

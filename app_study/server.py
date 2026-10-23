@@ -4,6 +4,8 @@ import threading
 import json
 import argparse
 import os
+import shutil
+import tempfile
 from time import sleep
 parser = argparse.ArgumentParser()
 
@@ -14,7 +16,9 @@ parent_dir = os.path.dirname(my_module)
 static_dir = os.path.join(parent_dir, 'static')
 index_file_path = os.path.join(parent_dir, 'index.html')
 json_path = ""
-video_path = None 
+video_path = None
+save_lock = threading.Lock()
+BACKUP_COUNT = 5  # previous versions kept as <logs file>.bak1 (newest) ... .bak5 (oldest)
 
 @app.get("/")
 def home():
@@ -29,16 +33,66 @@ def home():
 def server_static(filename):
     return static_file(filename, root=static_dir)
 
-@app.post('/update_json')
-def update_json():
-    global json_path
-    data = bottle.request.json
+def rotate_backups(path):
+    """Shift <path>.bak1..bak4 down one slot and copy the current file to .bak1."""
+    for i in range(BACKUP_COUNT - 1, 0, -1):
+        older = f"{path}.bak{i}"
+        if os.path.exists(older):
+            os.replace(older, f"{path}.bak{i + 1}")
+    if os.path.exists(path):
+        shutil.copy2(path, f"{path}.bak1")
+
+def atomic_write_json(path, data):
+    """Write to a temporary file next to path, then swap it in, so a crash never leaves half a file."""
+    directory = os.path.dirname(path) or "."
+    fd, tmp_path = tempfile.mkstemp(dir=directory, prefix=f".{os.path.basename(path)}.", suffix=".tmp")
     try:
-        with open(json_path, 'w', encoding='utf-8') as outfile:
+        with os.fdopen(fd, 'w', encoding='utf-8') as outfile:
             json.dump(data, outfile, indent=4)
-        return {"status": "success"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+            outfile.flush()
+            os.fsync(outfile.fileno())
+        os.replace(tmp_path, path)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        raise
+
+@app.post('/save')
+def save():
+    """Save the logs if the client edited the latest revision; otherwise report a conflict (409)."""
+    global json_path
+    try:
+        payload = bottle.request.json
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict) or not isinstance(payload.get('data'), dict):
+        bottle.response.status = 400
+        return {"status": "error", "message": "Expected {\"revision\": n, \"data\": {...}}"}
+    base_revision = payload.get('revision', 0)
+
+    with save_lock:
+        try:
+            with open(json_path, 'r', encoding='utf-8') as fl:
+                current = json.load(fl)
+        except (OSError, ValueError):
+            current = None  # missing or unreadable; it is kept as .bak1 below
+        if isinstance(current, dict):
+            current_revision = current.get('revision', 0)
+            if base_revision != current_revision:
+                bottle.response.status = 409
+                return {"status": "conflict", "revision": current_revision, "data": current}
+        else:
+            current_revision = base_revision
+
+        data = dict(payload['data'])
+        data['revision'] = current_revision + 1
+        try:
+            rotate_backups(json_path)
+            atomic_write_json(json_path, data)
+        except Exception as e:
+            bottle.response.status = 500
+            return {"status": "error", "message": str(e)}
+    return {"status": "success", "revision": data['revision']}
 
 @app.post('/initialize_html')
 def initialize_html():
