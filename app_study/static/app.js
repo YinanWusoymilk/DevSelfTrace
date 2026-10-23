@@ -101,7 +101,7 @@ function showSaveStatus(status) {
                 text = `Not saved · retrying in ${Math.round(status.retryInMs / 1000)}s`;
                 showBanner(`Could not save your annotations: ${status.message} Your work is still in this page.`, [
                     ["Retry now", () => autosave.flush()],
-                    ["Export a backup", exportBackup],
+                    ["Export a backup", exportJson],
                 ], "save");
             } else {
                 text = status.message;
@@ -113,7 +113,7 @@ function showSaveStatus(status) {
             showBanner("These annotations were changed somewhere else (another tab or program) after you loaded them.", [
                 ["Load their version", loadRemoteVersion],
                 ["Keep mine", () => autosave.overwrite()],
-                ["Export mine", exportBackup],
+                ["Export mine", exportJson],
             ], "save");
             break;
         case "readonly":
@@ -157,21 +157,93 @@ function loadRemoteVersion() {
     applyLabelset(checked && checked.ok ? checked.labelset : presetLabelset(DSTPresets.defaultId));
 }
 
-// Download the current annotations as a JSON file
-function exportBackup() {
-    const blob = new Blob([JSON.stringify(session, null, 4)], { type: "application/json" });
+// ---- Export, import, new session -----------------------------------------------
+
+function downloadFile(name, text, type) {
+    const blob = new Blob([text], { type: type });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `devselftrace_backup_${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    link.download = name;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
+
+// Download the annotations as JSON (the same format can be imported again)
+function exportJson() {
+    downloadFile(DSTCore.exportFileName(session, "json"), JSON.stringify(DSTCore.exportSession(session), null, 2) + "\n", "application/json");
+}
+
+// Download the annotations as a CSV table, one row per interval
+function exportCsv() {
+    downloadFile(DSTCore.exportFileName(session, "csv"), DSTCore.sessionToCsv(session, labelset), "text/csv");
+}
+
+// Replace the current annotations with those in an exported (or older DevSelfTrace) JSON file
+async function importSession(file) {
+    const result = DSTCore.parseSessionFile(await file.text(), presetLabelset(DSTPresets.defaultId));
+    if (!result.ok) {
+        alert(`"${file.name}" could not be imported: ${result.error}.`);
+        return;
+    }
+    const count = session.intervals.length;
+    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in "${file.name}"? Export the current ones first if you want to keep them.`)) {
+        return;
+    }
+    session = result.session;
+    index_log = 0;
+    applyLabelset(session.labelset);
+    autoSaveLogs();
+    const converted = result.converted ? " (converted from the older DevSelfTrace format)" : "";
+    const notes = result.warnings.length > 0 ? ` Notes: ${result.warnings.join(" ")}` : "";
+    showBanner(`Imported ${session.intervals.length} annotation(s) from "${file.name}"${converted}.${notes}`, [["Dismiss", hideBanner]]);
+}
+
+// Clear the annotations (keeping the label set, which can then be changed)
+function startNewSession() {
+    const count = session.intervals.length;
+    if (count === 0) {
+        resetSession();
+        return;
+    }
+    const where = store.mode === "server" ? "the logs file (the previous version stays in its .bak backups)" : "this browser";
+    showBanner(`Start a new session? The ${count} current annotation(s) will be cleared from ${where}. Export them first to keep a copy.`, [
+        ["Export JSON", exportJson],
+        ["Start new session", () => {
+            hideBanner();
+            resetSession();
+        }],
+        ["Cancel", hideBanner],
+    ]);
+}
+
+function resetSession() {
+    const keep = labelset;
+    session = DSTCore.emptySession();
+    index_log = 0;
+    startTime = null;
+    endTime = null;
+    updateSelectedTimes();
+    applyLabelset(keep);
+    autoSaveLogs();
+}
+
+document.getElementById("export-json").addEventListener("click", exportJson);
+document.getElementById("export-csv").addEventListener("click", exportCsv);
+document.getElementById("import-json").addEventListener("click", () => document.getElementById("import-file").click());
+document.getElementById("import-file").addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    event.target.value = "";
+    if (file) importSession(file);
+});
+document.getElementById("new-session").addEventListener("click", startNewSession);
 
 // Another tab is already editing this session
 function enterReadOnly() {
     readOnly = true;
     autosave.setReadOnly(true);
-    [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton].forEach((button) => {
+    const editingControls = [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton,
+        document.getElementById("import-json"), document.getElementById("new-session")];
+    editingControls.forEach((button) => {
         button.disabled = true;
         button.title = "Read-only: this session is open in another tab";
     });
@@ -269,7 +341,7 @@ function applyLabelset(newLabelset) {
 // Switching is only allowed before the first annotation, so logs never mix label sets
 function switchLabelset(newLabelset) {
     if (session.intervals.length > 0) {
-        alert(`This session already has annotations made with the "${labelset.name}" label set. Export them and start a new session to use a different label set.`);
+        alert(`This session already has annotations made with the "${labelset.name}" label set. Export them and click "New session" to use a different label set.`);
         renderLabelsetPicker();
         return;
     }
@@ -307,7 +379,7 @@ function updateLabelsetLock() {
     labelsetLockNote.classList.toggle("hidden", !locked);
     if (locked) {
         labelsetLockNote.textContent = `Locked: this session already has annotations made with "${labelset.name}".`;
-        const why = "A session never mixes label sets, so the label set cannot change once there are annotations. Use another label set in a new session.";
+        const why = "A session never mixes label sets, so the label set cannot change once there are annotations. To use another one, export the annotations and click \"New session\".";
         labelsetLockNote.title = why;
         labelsetSelect.title = why;
         labelsetLoadButton.title = why;

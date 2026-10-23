@@ -210,6 +210,7 @@
     .labelset-bar { display: flex; align-items: center; gap: 10px; margin-top: 15px; }
     .labelset-bar select { padding: 4px; }
     .labelset-lock { color: #555; font-size: 13px; }
+    .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 15px; }
   </style>
 </head>
 
@@ -309,6 +310,16 @@
                 <button id="labelset-load" class="btn-hover color-10" title="Load a label set from a JSON file">Load from file…</button>
                 <input type="file" id="labelset-file" accept=".json,application/json" hidden>
                 <span id="labelset-lock" class="labelset-lock hidden"></span>
+              </div>
+
+              <!-- Session: take the annotations out, bring them back, or start over -->
+              <div class="session-bar">
+                <span>Session:</span>
+                <button id="export-json" class="btn-hover color-10" title="Download the annotations as JSON (can be imported again)">Export JSON</button>
+                <button id="export-csv" class="btn-hover color-10" title="Download the annotations as a CSV table (one row per interval)">Export CSV</button>
+                <button id="import-json" class="btn-hover color-10" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON…</button>
+                <input type="file" id="import-file" accept=".json,application/json" hidden>
+                <button id="new-session" class="btn-hover color-10" title="Clear the annotations and start over (for example with another label set)">New session</button>
               </div>
 
             </div>

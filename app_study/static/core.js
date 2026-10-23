@@ -386,6 +386,81 @@
         return { session: session, converted: false, warnings: [] };
     }
 
+    // ---- Export and import ---------------------------------------------------------
+
+    // e.g. "devselftrace_p01_recording_20261022-2015.json"
+    function exportFileName(session, extension, now) {
+        const date = now || new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const stamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
+        const videoName = session.video && isText(session.video.name) ? session.video.name.replace(/\.[^.]+$/, "") : "";
+        const base = videoName.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "") || "session";
+        return `devselftrace_${base}_${stamp}.${extension}`;
+    }
+
+    // The session as written to an exported JSON file (revision only matters for saving in place)
+    function exportSession(session) {
+        const copy = JSON.parse(JSON.stringify(session));
+        delete copy.revision;
+        return copy;
+    }
+
+    // Quote a CSV field when needed (RFC 4180)
+    function csvField(value) {
+        const text = value === null || value === undefined ? "" : String(value);
+        return /[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    }
+
+    // One row per interval. A "pairs" dimension becomes one column per field (e.g. actions.action,
+    // actions.tool) listing the pairs' values in the same order, separated by "; ".
+    function sessionToCsv(session, labelset) {
+        const header = ["id", "start", "end", "duration"];
+        labelset.dimensions.forEach((dim) => {
+            if (dim.type === "pairs") dim.fields.forEach((field) => header.push(`${dim.id}.${field.id}`));
+            else header.push(dim.id);
+        });
+        const rows = session.intervals.map((interval) => {
+            const row = [interval.id, interval.start, interval.end, interval.duration];
+            labelset.dimensions.forEach((dim) => {
+                const value = interval[dim.id];
+                if (dim.type === "pairs") {
+                    const pairs = Array.isArray(value) ? value : [];
+                    dim.fields.forEach((field) => row.push(pairs.map((pair) => pair[field.id] ?? "").join("; ")));
+                } else {
+                    row.push(value);
+                }
+            });
+            return row;
+        });
+        return [header, ...rows].map((row) => row.map(csvField).join(",")).join("\r\n") + "\r\n";
+    }
+
+    // Read an annotation file (exported, saved by server.py, or from DevSelfTrace v1).
+    // Returns { ok: true, session, converted, warnings } or { ok: false, error }.
+    function parseSessionFile(text, defaultLabelset) {
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            return { ok: false, error: `it is not valid JSON (${error.message})` };
+        }
+        if (!data || typeof data !== "object" || (!Array.isArray(data.intervals) && !Array.isArray(data.logs))) {
+            return { ok: false, error: 'it is not a DevSelfTrace annotation file (there is no "intervals" or "logs" list)' };
+        }
+        if (data.labelset) {
+            const checked = validateLabelset(data.labelset);
+            if (!checked.ok) return { ok: false, error: `its label set is not valid (${checked.errors.slice(0, 3).join("; ")})` };
+            data.labelset = checked.labelset;
+        } else if (Array.isArray(data.intervals)) {
+            data.labelset = defaultLabelset;
+        }
+        const result = normalizeSession(data, defaultLabelset);
+        const broken = result.session.intervals.findIndex((interval) => typeof interval.start !== "number" || typeof interval.end !== "number");
+        if (broken !== -1) return { ok: false, error: `interval ${broken + 1} has no start or end time` };
+        delete result.session.revision;
+        return { ok: true, session: result.session, converted: result.converted, warnings: result.warnings };
+    }
+
     return {
         SCHEMA_VERSION: SCHEMA_VERSION,
         formatTime: formatTime,
@@ -405,5 +480,10 @@
         parseV1Pairs: parseV1Pairs,
         convertV1: convertV1,
         normalizeSession: normalizeSession,
+        exportFileName: exportFileName,
+        exportSession: exportSession,
+        csvField: csvField,
+        sessionToCsv: sessionToCsv,
+        parseSessionFile: parseSessionFile,
     };
 });
