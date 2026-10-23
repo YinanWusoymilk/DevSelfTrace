@@ -62,28 +62,36 @@
 
     /* The video fills the right column; 16:9 until a recording is loaded, then the recording's own shape,
        never taller than 70% of the window (letterboxed instead of cropped) */
-    #codeVideo { display: block; width: 100%; height: auto; max-height: 70vh; aspect-ratio: auto 16 / 9; margin-top: 10px; background: #000; object-fit: contain; }
+    #codeVideo { display: block; width: 100%; height: auto; max-height: 70vh; aspect-ratio: auto 16 / 9; background: #000; object-fit: contain; }
 
     /* Start / end times: typed, or taken from the video */
-    #timeSelection { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 10px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #f9f9f9; }
+    #timeSelection { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 18px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #f9f9f9; }
     .time-group { display: inline-flex; align-items: center; gap: 6px; }
     .time-input { width: 84px; padding: 5px 7px; border: 1px solid #bbb; border-radius: 5px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
     .time-input.invalid { border-color: #c0392b; background: #fdecea; }
     .link-btn { padding: 4px 8px; border: 1px solid #bbb; border-radius: 5px; background: #fff; font-size: 13px; cursor: pointer; }
 
     .navigation-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-    .labelset-bar, .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 15px; }
-    .labelset-bar select { padding: 4px; }
-    .labelset-lock { color: #555; font-size: 13px; }
     .video-hint { margin-top: 6px; color: #555; font-size: 13px; }
 
-    /* Save status (top right) and save problems banner */
-    .save-status { position: fixed; top: 8px; right: 12px; z-index: 1000; padding: 4px 10px; border-radius: 12px; font-size: 12px; line-height: 1.4; background: #e8e8e8; color: #333; }
+    /* Gray bar under both columns: label set, annotations (export, import, start over, sample), save status.
+       Quiet buttons, so the pink ones stay for the video and the times. */
+    .app-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 14px; padding: 6px 12px; border: 1px solid #dcdcdc; border-radius: 6px; background: #f0f0f0; }
+    .labelset-bar, .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .labelset-bar label, .session-bar > span { color: #555; font-size: 14px; font-weight: 600; }
+    .labelset-bar select { margin: 0; padding: 4px; }
+    .bar-divider { width: 1px; height: 24px; background: #cfcfcf; }
+    .bar-btn { padding: 5px 12px; border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; color: #333; font-size: 13px; white-space: nowrap; cursor: pointer; }
+    .bar-btn:hover:not(:disabled) { background: #e6e6e6; }
+    .labelset-lock { color: #555; font-size: 13px; cursor: help; }
+
+    /* Save status (right end of the gray bar) and the banner for save problems and questions */
+    .save-status { margin-left: auto; padding: 4px 10px; border-radius: 12px; font-size: 12px; line-height: 1.4; background: #e8e8e8; color: #333; }
     .save-status.ok { background: #d1e7dd; color: #0f5132; }
     .save-status.error { background: #f8d7da; color: #842029; }
     .save-status.readonly { background: #cfe2ff; color: #084298; }
-    /* In the page flow (not floating), so it never covers the controls */
-    .save-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 36px 1em 8px; padding: 10px 14px; border: 1px solid #ffecb5; border-radius: 6px; background: #fff3cd; color: #664d03; font-size: 14px; line-height: 1.4; }
+    /* In the page flow (not floating), so it never covers the controls; just above the gray bar */
+    .save-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 14px; border: 1px solid #ffecb5; border-radius: 6px; background: #fff3cd; color: #664d03; font-size: 14px; line-height: 1.4; }
     .save-banner button { padding: 4px 10px; border: 1px solid #997404; border-radius: 4px; background: #fff; color: #664d03; cursor: pointer; }
 
     /* Explanation that appears right away on hover or keyboard focus (data-tip="..."); the browser's own
@@ -91,7 +99,7 @@
     .tip { position: relative; }
     .tip::after {
       content: attr(data-tip);
-      /* opens to the left of the button's right edge: these buttons sit in the right-hand column */
+      /* opens upwards, to the left of the element's right edge (they sit in the gray bar at the bottom) */
       position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 1200;
       width: 300px; padding: 8px 10px; border-radius: 6px; background: #333; color: #fff;
       font-size: 12px; font-weight: normal; line-height: 1.4; text-align: left; white-space: normal;
@@ -109,8 +117,6 @@
 </head>
 
 <body>
-  <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
-  <div id="save-banner" class="save-banner hidden" role="alert"></div>
   <div id="toasts" aria-live="polite"></div>
 
   <div class="main">
@@ -168,7 +174,7 @@
               </div>
 
               <!-- Playback Controls -->
-              <div class="navigation-buttons" style="margin-top: 15px;">
+              <div class="navigation-buttons" style="margin-top: 18px;">
                 <button class="button" style="border-radius: 50%;" id="autoPlay">AutoPlay</button>
                 <label for="speed_slider">Playback Speed</label>
                 <input type="range" list="steplist" style="width: 15%;" min="0.25" step="0.25" max="3" value="1"
@@ -190,34 +196,43 @@
               </div>
 
               <!-- Section for video selection -->
-              <div style="margin-top: 15px;">
+              <div style="margin-top: 18px;">
                 <label for="video-upload">Select a video:</label>
                 <input type="file" id="video-upload" accept="video/*">
                 <button id="loadVideoButton" class="btn-hover color-10">Load Video</button>
-                <p class="video-hint">Load any screen recording (.mp4 or .webm) from your computer. It plays only in your browser and is never uploaded. You can also type start and end times without a video. No recording at hand? Click "Load sample" below.</p>
-              </div>
-
-              <!-- Label set: which dimensions and options the questions show -->
-              <div class="labelset-bar">
-                <label for="labelset-select">Label set:</label>
-                <select id="labelset-select"></select>
-                <button id="labelset-load" class="btn-hover color-10" title="Load a label set from a JSON file">Load from file</button>
-                <input type="file" id="labelset-file" accept=".json,application/json" hidden>
-                <span id="labelset-lock" class="labelset-lock hidden"></span>
-              </div>
-
-              <!-- Annotations: take them out, bring them back, start over, or load the sample -->
-              <div class="session-bar">
-                <span>Annotations:</span>
-                <button id="export-json" class="btn-hover color-10" title="Download the annotations as JSON (can be imported again)">Export JSON</button>
-                <button id="export-csv" class="btn-hover color-10" title="Download the annotations as a CSV table (one row per interval)">Export CSV</button>
-                <button id="import-json" class="btn-hover color-10" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON</button>
-                <input type="file" id="import-file" accept=".json,application/json" hidden>
-                <button id="start-over" class="btn-hover color-10 tip" data-tip="Clear all annotations and begin again with an empty session, e.g. for the next participant or to switch label sets. You are asked first and can export a copy; on the server the previous version also stays in the .bak backups.">Start over</button>
-                <button id="load-sample" class="btn-hover color-10" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
+                <p class="video-hint">Plays only in this browser, never uploaded. No video? Type the times, or try "Load sample".</p>
               </div>
 
             </div>
+          </div>
+
+          <!-- Notices and questions (save problems, "Start over?", "Replace?"), next to the buttons that ask them -->
+          <div id="save-banner" class="save-banner hidden" role="alert"></div>
+
+          <!-- Things done to the whole set of annotations, rather than to one interval -->
+          <div class="app-bar">
+            <!-- Label set: which dimensions and options the questions show -->
+            <div class="labelset-bar">
+              <label for="labelset-select">Label set:</label>
+              <select id="labelset-select"></select>
+              <button id="labelset-load" class="bar-btn" title="Load a label set from a JSON file">Load from file</button>
+              <input type="file" id="labelset-file" accept=".json,application/json" hidden>
+              <span id="labelset-lock" class="labelset-lock tip hidden" tabindex="0">Locked</span>
+            </div>
+            <span class="bar-divider"></span>
+
+            <!-- Annotations: take them out, bring them back, start over, or load the sample -->
+            <div class="session-bar">
+              <span>Annotations:</span>
+              <button id="export-json" class="bar-btn" title="Download the annotations as JSON (can be imported again)">Export JSON</button>
+              <button id="export-csv" class="bar-btn" title="Download the annotations as a CSV table (one row per interval)">Export CSV</button>
+              <button id="import-json" class="bar-btn" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON</button>
+              <input type="file" id="import-file" accept=".json,application/json" hidden>
+              <button id="start-over" class="bar-btn tip" data-tip="Clear all annotations and begin again with an empty session, e.g. for the next participant or to switch label sets. You are asked first and can export a copy; on the server the previous version also stays in the .bak backups.">Start over</button>
+              <button id="load-sample" class="bar-btn" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
+            </div>
+
+            <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
           </div>
         </div>
       </div>
@@ -229,7 +244,7 @@
   <script src="static/sample.js?v=7eb0ae89"></script>
   <script src="static/core.js?v=5f341f81"></script>
   <script src="static/storage.js?v=8e66accf"></script>
-  <script src="static/app.js?v=3965921c"></script>
+  <script src="static/app.js?v=5cfc147b"></script>
 
   <script>
     // JavaScript for toggling views

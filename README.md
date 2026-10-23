@@ -76,7 +76,7 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 3. **Answer the questions** on the left. Each question is one dimension of the label set; some options show a short explanation on hover (e.g. every intention), and most dimensions also accept a custom label. For the action–tool question, pick an action and a tool and click *Add Action-Tool Pair*; an interval can have several pairs.
 4. **Add Log.** The interval appears in the *Logs Table*. Use ‹ › to select an interval, *Replay Event* to watch it again, *Edit Label* to change the answers of the selected interval (only the questions you answer change), and *Delete Log* to remove it.
 
-**Saving.** Changes are saved automatically about a second after each edit; the label in the top right corner shows whether everything is saved. DevSelfTrace protects long sessions:
+**Saving.** Changes are saved automatically about a second after each edit; the label at the right end of the gray bar at the bottom shows whether everything is saved. DevSelfTrace protects long sessions:
 
 - If the annotations were changed elsewhere in the meantime (for example in a second tab, or the file was edited), the save is refused and you choose to load the other version, keep yours, or export yours, instead of one silently overwriting the other.
 - Only one tab can edit a session; a second tab opens read-only.

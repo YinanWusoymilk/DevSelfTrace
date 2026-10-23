@@ -147,6 +147,7 @@ function showBanner(message, actions, kind) {
         saveBannerEl.appendChild(button);
     });
     saveBannerEl.classList.remove("hidden");
+    saveBannerEl.scrollIntoView({ block: "nearest" }); // on a short window it may be below the fold
 }
 
 function hideBanner() {
@@ -408,9 +409,9 @@ function updateLabelsetLock() {
     labelsetLoadButton.disabled = locked || readOnly;
     labelsetLockNote.classList.toggle("hidden", !locked);
     if (locked) {
-        labelsetLockNote.textContent = `Locked: this session already has annotations made with "${labelset.name}".`;
         const why = "A session never mixes label sets, so the label set cannot change once there are annotations. To use another one, export the annotations and click \"Start over\".";
-        labelsetLockNote.title = why;
+        // The note just says "Locked"; hovering (or focusing) it shows why
+        labelsetLockNote.dataset.tip = `This session already has annotations made with "${labelset.name}". ${why}`;
         labelsetSelect.title = why;
         labelsetLoadButton.title = why;
     } else {
