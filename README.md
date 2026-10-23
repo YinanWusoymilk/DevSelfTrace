@@ -4,6 +4,8 @@
 
 **DevSelfTrace** is a browser-based tool for **retrospective self-annotation of programming behavior**. After a programming session, a developer watches their own screen recording, splits it into time intervals they choose, and labels each interval. With the default label set those labels are their **intention**, their **actions** with the **supporting tool** used for each, and their **emotion**. Researchers get the annotations as structured JSON or CSV for analysis such as sequential pattern mining or qualitative coding.
 
+![DevSelfTrace: questions for the current interval on the left, the screen recording and session controls on the right](docs/static/images/tool-overview.png)
+
 - **Try it online (nothing to install):** <https://yinanwusoymilk.github.io/DevSelfTrace/app/>
 - **Project page:** <https://yinanwusoymilk.github.io/DevSelfTrace/>
 - **Demo video:** <https://youtu.be/pXlFTPROoWk>
@@ -74,14 +76,14 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 3. **Answer the questions** on the left. Each question is one dimension of the label set; some options show a short explanation on hover (e.g. every intention), and most dimensions also accept a custom label. For the action–tool question, pick an action and a tool and click *Add Action-Tool Pair*; an interval can have several pairs.
 4. **Add Log.** The interval appears in the *Logs Table*. Use ‹ › to select an interval, *Replay Event* to watch it again, *Edit Label* to change the answers of the selected interval (only the questions you answer change), and *Delete Log* to remove it.
 
-**Saving.** Changes are saved automatically about a second after each edit; the label in the top right corner shows whether everything is saved. DevSelfTrace protects long sessions:
+**Saving.** Changes are saved automatically about a second after each edit; the label at the right end of the gray bar at the bottom shows whether everything is saved. DevSelfTrace protects long sessions:
 
 - If the annotations were changed elsewhere in the meantime (for example in a second tab, or the file was edited), the save is refused and you choose to load the other version, keep yours, or export yours, instead of one silently overwriting the other.
 - Only one tab can edit a session; a second tab opens read-only.
 - On the server, files are replaced in one step (never half-written), and the five previous versions are kept as `FILE.bak1` … `FILE.bak5`.
 - If a save fails (server stopped, browser storage full), it is retried and you can export a copy right away.
 
-**Session** buttons: *Export JSON* (can be imported again), *Export CSV* (one row per interval), *Import JSON* (continue from an exported file or an older DevSelfTrace file), *New session* (start over, offering an export first), *Load sample*.
+**Annotations** buttons: *Export JSON* (can be imported again), *Export CSV* (one row per interval), *Import JSON* (continue from an exported file or an older DevSelfTrace file), *Start over* (clears the annotations, offering an export first), *Load sample*.
 
 ## Label sets
 
@@ -93,7 +95,7 @@ A **label set** defines the questions: its dimensions, their options and hover e
 | [`cups.json`](labels/cups.json) | The 12 CodeRec User Programming States of Mozannar et al. (CHI'24), with their definitions; custom labels are off, as in CUPS. |
 | [`template.json`](labels/template.json) | A starting point for your own label set. |
 
-**Choosing a label set:** the *Label set* menu in the page, *Load from file…* for your own file, `?labels=cups` in the address (e.g. `.../app/?labels=cups`), or `server.py -l FILE`. The label set is saved with the annotations. Once a session has annotations its label set is locked, so a session never mixes label sets; start a *New session* to switch.
+**Choosing a label set:** the *Label set* menu in the page, *Load from file* for your own file, `?labels=cups` in the address (e.g. `.../app/?labels=cups`), or `server.py -l FILE`. The label set is saved with the annotations. Once a session has annotations its label set is locked, so a session never mixes label sets; use *Start over* to switch.
 
 **Writing your own.** Copy `labels/template.json` and edit it. A minimal example:
 
@@ -131,6 +133,7 @@ A **label set** defines the questions: its dimensions, their options and hover e
 | `id` | Key under which the answer is stored, e.g. `"hypothesis"`. Letters, digits, `-`, `_`; not `id`, `start`, `end` or `duration`. |
 | `label` | Short name next to the dropdown (required). |
 | `prompt` | The question shown above it (defaults to `label`). |
+| `help` | Optional explanation shown under the question. |
 | `type` | `"single"`: pick one option. `"pairs"`: add one or more pairs of two `fields`, e.g. an action and the tool used for it. |
 | `options` | Strings, or `{ "value": ..., "hint": ... }` to show an explanation on hover. |
 | `allowCustom` | `false` turns off custom labels for this dimension (default `true`). |

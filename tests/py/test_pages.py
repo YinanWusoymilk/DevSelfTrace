@@ -19,6 +19,12 @@ class PagesTest(unittest.TestCase):
         self.assertIn('<meta name="devselftrace-mode" content="browser" />', page)
         self.assertNotIn('content="auto"', page)
 
+    def test_online_copy_links_scripts_with_a_version_tag(self):
+        with open(os.path.join(ROOT, "docs", "app", "index.html"), encoding="utf-8") as f:
+            page = f.read()
+        for name in ("core.js", "storage.js", "app.js", "presets.js", "sample.js", "demo_open.css"):
+            self.assertRegex(page, rf'"static/{name}\?v=[0-9a-f]{{8}}"', name)
+
     def test_homepage_links_to_the_online_copy(self):
         with open(os.path.join(ROOT, "docs", "index.html"), encoding="utf-8") as f:
             self.assertIn('href="app/"', f.read())

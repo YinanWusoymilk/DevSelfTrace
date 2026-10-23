@@ -41,16 +41,6 @@ a img {border: none;}
 	margin-bottom: 1.5em;
   }
 
-  video {
-  /* override other styles to make responsive */
-  width: auto    !important;
-  height: 70vh   !important;
-}
-
-
-
-HTML CSSResult Skip Results Iframe
-EDIT ON
 * {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -63,7 +53,7 @@ EDIT ON
 }
 .button{
 	font-size: 12px;
-	height:3.5vh;
+	padding: 4px 10px;
 	cursor: pointer;
 
 }
@@ -71,12 +61,14 @@ EDIT ON
 
 
 .btn-hover {
-    width: 15%;
-    font-size: 12px;
+    width: auto;
+    padding: 7px 14px;
+    white-space: nowrap;
+    font-size: 13px;
     font-weight: 600;
     color: #fff;
     cursor: pointer;
-    height: 4.2vh;
+    height: auto;
     text-align:center;
     border: none;
     background-size: 300% 100%;
@@ -127,7 +119,7 @@ EDIT ON
 }
 .btn-hover.color-8 {
     background-image: linear-gradient(to right, #29323c, #485563, #2b5876, #4e4376);
-    box-shadow: 0 2px 15px 0 rgba(45, 54, 65, 0.75);
+    box-shadow: 0 1px 4px 0 rgba(45, 54, 65, 0.45);
 }
 .btn-hover.color-9 {
     background-image: linear-gradient(to right, #25aae1,  #228548);
@@ -135,7 +127,7 @@ EDIT ON
 }
 .btn-hover.color-10 {
         background-image: linear-gradient(to right, #ed6ea0, #ec8c69, #f7186a , #FBB03B);
-    box-shadow: 0 2px 15px 0 rgba(236, 116, 149, 0.75);
+    box-shadow: 0 1px 4px 0 rgba(236, 116, 149, 0.45);
 }
 .btn-hover.color-11 {
        background-image: linear-gradient(to right, #eb3941, #f15e64, #e14e53, #e2373f);  box-shadow: 0 5px 15px rgba(242, 97, 103, .4);
@@ -211,10 +203,9 @@ EDIT ON
 
 
  .wrapper{
-    display:table;
-    width:auto;
+    display:block;
     position:relative;
-    width:50%;
+    width:100%;
 }
 .playpause {
     background-image:url(http://png-4.findicons.com/files/icons/2315/default_icon/256/media_play_pause_resume.png);
@@ -910,7 +901,7 @@ img.alignright, img.right {margin: 0 0 1em 1.5em;}
 	font-size: 15px;
   }
   
-  .active, .collapsible:hover {
+  .collapsible.active, .collapsible:hover {
 	background-color: #4861f1;
   }
   
@@ -922,7 +913,7 @@ img.alignright, img.right {margin: 0 0 1em 1.5em;}
 	margin-left: 5px;
   }
   
-  .active:after {
+  .collapsible.active:after {
 	content: "\2212";
   }
   
