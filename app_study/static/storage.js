@@ -21,7 +21,7 @@
     const BROWSER_KEY = "devselftrace:session";
 
     function emptySession() {
-        return { logs: [] };
+        return { tool: "DevSelfTrace", schemaVersion: 2, intervals: [] };
     }
 
     function revisionOf(data) {
@@ -36,7 +36,13 @@
             async load() {
                 const response = await fetchFn(info.json_path, { cache: "no-store" });
                 const data = await response.json();
-                return { data: data, revision: revisionOf(data), videoPath: info.video_path || null };
+                return {
+                    data: data,
+                    revision: revisionOf(data),
+                    videoPath: info.video_path || null,
+                    videoName: info.video_name || null,
+                    labelset: info.labelset || null, // from server.py --labels
+                };
             },
 
             async write(data, baseRevision) {
@@ -79,7 +85,7 @@
                 } catch (error) {
                     console.error("Failed to read saved logs from the browser.", error);
                 }
-                return { data: data, revision: revisionOf(data), videoPath: null };
+                return { data: data, revision: revisionOf(data), videoPath: null, videoName: null, labelset: null };
             },
 
             async write(data, baseRevision) {
@@ -217,6 +223,7 @@
             getConflict: () => conflict,
             // Conflict: drop local changes and continue from the other version
             acceptRemote: () => {
+                if (!conflict) return; // already resolved (e.g. a second click)
                 revision = conflict.revision;
                 conflict = null;
                 savedSeq = changeSeq;
@@ -224,6 +231,7 @@
             },
             // Conflict: keep local changes and save them over the other version
             overwrite: () => {
+                if (!conflict) return Promise.resolve(); // already resolved
                 revision = conflict.revision;
                 conflict = null;
                 attempts = 0;

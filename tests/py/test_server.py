@@ -96,9 +96,48 @@ class ServerTest(unittest.TestCase):
         self.assertIsNone(info["video_path"])
 
     def test_initialize_reports_video_when_given(self):
-        server.video_path = os.path.join(self.tmp, "session.mp4")
+        server.video_path = os.path.join(self.tmp, "p01_recording.mp4")
         info = json.loads(call("POST", "/initialize_html")[1])
         self.assertEqual(info["video_path"], "/files/video")
+        self.assertEqual(info["video_name"], "p01_recording.mp4")
+
+    def test_a_v1_logs_file_is_copied_before_it_is_converted(self):
+        copy = server.keep_v1_copy(self.json_file)  # SAMPLE is in the v1 format
+        self.assertEqual(copy, os.path.join(self.tmp, "session.v1.json"))
+        with open(copy, encoding="utf-8") as f:
+            self.assertEqual(json.load(f), SAMPLE)
+
+        # An existing copy is never replaced (it is the original)
+        with open(self.json_file, "w", encoding="utf-8") as f:
+            json.dump({"logs": [{"ID": 9}]}, f)
+        server.keep_v1_copy(self.json_file)
+        with open(copy, encoding="utf-8") as f:
+            self.assertEqual(json.load(f), SAMPLE)
+
+    def test_v2_and_empty_files_need_no_copy(self):
+        for data in ({"schemaVersion": 2, "intervals": []}, {"logs": []}):
+            with open(self.json_file, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            self.assertIsNone(server.keep_v1_copy(self.json_file))
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, "session.v1.json")))
+
+    def test_initialize_passes_on_the_label_set(self):
+        info = json.loads(call("POST", "/initialize_html")[1])
+        self.assertIsNone(info["labelset"])  # no --labels: the page uses its default
+
+        server.labelset = server.load_labelset(os.path.join(APP_DIR, "..", "labels", "cups.json"))
+        try:
+            info = json.loads(call("POST", "/initialize_html")[1])
+        finally:
+            server.labelset = None
+        self.assertEqual(info["labelset"]["name"], "CUPS")
+
+    def test_load_labelset_rejects_files_that_are_not_label_sets(self):
+        not_labels = os.path.join(self.tmp, "not_labels.json")
+        with open(not_labels, "w", encoding="utf-8") as f:
+            json.dump({"logs": []}, f)
+        with self.assertRaises(ValueError):
+            server.load_labelset(not_labels)
 
     def test_initialize_reports_an_unreadable_logs_file(self):
         with open(self.json_file, "w", encoding="utf-8") as f:

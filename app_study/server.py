@@ -17,6 +17,7 @@ static_dir = os.path.join(parent_dir, 'static')
 index_file_path = os.path.join(parent_dir, 'index.html')
 json_path = ""
 video_path = None
+labelset = None  # label set from --labels; the page checks it and falls back to the default
 save_lock = threading.Lock()
 BACKUP_COUNT = 5  # previous versions kept as <logs file>.bak1 (newest) ... .bak5 (oldest)
 
@@ -111,7 +112,9 @@ def initialize_html():
         data_json = {
             'json_path': json_url,
             'video_path': video_url,
-            'labeled_so_far': labeled_so_far
+            'video_name': os.path.basename(video_path) if video_path else None,
+            'labeled_so_far': labeled_so_far,
+            'labelset': labelset
         }
         return data_json
     except Exception as e:
@@ -145,11 +148,37 @@ class Demo(object):
         while self.close_thread:
             sleep(0.01)
 
+def keep_v1_copy(path):
+    """If path holds annotations in the old v1 format ({"logs": [...]}), copy it to
+    <name>.v1.json before the page converts it to v2. Returns the copy's path, or None."""
+    try:
+        with open(path, encoding='utf-8') as fl:
+            data = json.load(fl)
+    except (OSError, ValueError):
+        return None
+    is_v1 = isinstance(data, dict) and isinstance(data.get('logs'), list) and 'intervals' not in data
+    if not is_v1 or not data['logs']:
+        return None  # nothing to keep
+    root, _ = os.path.splitext(path)
+    copy_path = f"{root}.v1.json"
+    if not os.path.exists(copy_path):
+        shutil.copy2(path, copy_path)
+    return copy_path
+
+def load_labelset(path):
+    """Read a label set JSON file (see labels/). Full checks happen in the page."""
+    with open(path, encoding='utf-8') as fl:
+        data = json.load(fl)
+    if not isinstance(data, dict) or not isinstance(data.get('dimensions'), list):
+        raise ValueError(f"{path} is not a label set: expected an object with a \"dimensions\" list")
+    return data
+
 parser.add_argument('-p', '--path', help='Path to logs JSON file', required=True)
 parser.add_argument('-v', '--video', help='Path to video file', required=False)
+parser.add_argument('-l', '--labels', help='Path to a label set JSON file (default: labels/s-iase.json)', required=False)
 
 def main():
-    global json_path, video_path
+    global json_path, video_path, labelset
     args = parser.parse_args()
 
     try:
@@ -162,6 +191,11 @@ def main():
             raise FileNotFoundError(f"JSON file not found: {json_path}")
         if video_path and not os.path.isfile(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
+        if args.labels:
+            labelset = load_labelset(os.path.abspath(args.labels))
+        v1_copy = keep_v1_copy(json_path)
+        if v1_copy:
+            print(f"{json_path} uses the old v1 format; the page will convert it. The original is kept as {v1_copy}")
 
         Demo()
     except Exception as e:
@@ -174,5 +208,7 @@ if __name__ == "__main__":
 # Example Usage:-
 
 # python3 server.py -p /absolute/path/to/log.json -v /absolute/path/to/video.mp4
+# OR, with a different label set (see labels/)
+# python3 server.py -p /absolute/path/to/log.json -l ../labels/cups.json
 # OR
 # python3 server.py -p /absolute/path/to/log.json (When video is not to be provided via command line but is to be provided via the user-interface)

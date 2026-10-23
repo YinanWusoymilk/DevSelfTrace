@@ -1,0 +1,129 @@
+{
+  "name": "S-IASE",
+  "description": "Default label set from the S-IASE model of developer programming behavior (Wu et al., FSE 2026): intention, action and supporting tool pairs, and emotion valence.",
+  "dimensions": [
+    {
+      "id": "intention",
+      "label": "Intention",
+      "prompt": "What is your intention in this time interval?",
+      "type": "single",
+      "allowCustom": true,
+      "placeholder": "Select your intention",
+      "options": [
+        {
+          "value": "To Understand Context",
+          "hint": "Learn how the code/system works"
+        },
+        {
+          "value": "To Clarify Requirements/ Ambiguities",
+          "hint": "Clear up confusion about what’s needed"
+        },
+        {
+          "value": "To Understand Required Knowledge",
+          "hint": "Acquire background knowledge needed for the task"
+        },
+        {
+          "value": "To Design/Plan New Code",
+          "hint": "Decide how to build something new"
+        },
+        {
+          "value": "To Set Up Project Environment",
+          "hint": "Configure tools, libraries, or project settings"
+        },
+        {
+          "value": "To Explore Alternative Solutions",
+          "hint": "Try different ways to solve a problem"
+        },
+        {
+          "value": "To Evaluate Suggestions",
+          "hint": "Check if AI/tool suggestions are good"
+        },
+        {
+          "value": "To Verify Existing Code",
+          "hint": "Check code for problems or improvements"
+        },
+        {
+          "value": "To Implement Code",
+          "hint": "Translate designs or plans into executable code"
+        },
+        {
+          "value": "To Resolve Errors",
+          "hint": "Fix bugs or crashes"
+        },
+        {
+          "value": "To Optimize Code",
+          "hint": "Make code faster, cleaner, or smaller"
+        },
+        {
+          "value": "Do Nothing",
+          "hint": "Do nothing"
+        }
+      ]
+    },
+    {
+      "id": "actions",
+      "label": "Action-Tool Pair",
+      "prompt": "What are your actual actions in this time interval and which supporting tool are you using for each action?",
+      "type": "pairs",
+      "allowCustom": true,
+      "fields": [
+        {
+          "id": "action",
+          "label": "Action",
+          "placeholder": "Select an action",
+          "options": [
+            "Configuration",
+            "Reading and Comprehension",
+            "Executing the Code",
+            "Waiting",
+            "Search",
+            "Writing New Code",
+            "Editing Existing Code",
+            "Crafting Query/Prompt",
+            "Editing Query/Prompt",
+            "Accepting the results returned by supporting tools",
+            "Rejecting the results returned by supporting tools",
+            "Refining the results returned by supporting tools",
+            "Writing Documentation",
+            "Running Tests",
+            "Logging",
+            "Watching Program Status"
+          ]
+        },
+        {
+          "id": "tool",
+          "label": "Supporting Tool",
+          "placeholder": "Select a tool",
+          "optional": true,
+          "options": [
+            "AI Tools",
+            "IDE",
+            "Search Engine",
+            "Database Tools",
+            "Compiler",
+            "Static Program Analysis",
+            "Proprietary Developer Platform (e.g. Github)",
+            "Not using any tools"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "emotion",
+      "label": "Emotion Valence",
+      "prompt": "What level of emotion state can you rate in this time interval?",
+      "type": "single",
+      "allowCustom": false,
+      "placeholder": "Select an emotion valence",
+      "options": [
+        "Extremely Negative",
+        "Negative",
+        "Slightly Negative",
+        "Neutral",
+        "Slightly Positive",
+        "Positive",
+        "Extremely Positive"
+      ]
+    }
+  ]
+}

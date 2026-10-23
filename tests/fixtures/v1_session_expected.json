@@ -1,0 +1,10 @@
+{
+    "warnings": 2,
+    "intervals": [
+        {"id": 1, "start": 0, "end": 12.5, "duration": 12.5, "intention": "To Understand Context", "actions": [{"action": "Reading and Comprehension", "tool": "IDE"}], "emotion": "Neutral"},
+        {"id": 2, "start": 12.5, "end": 30.25, "duration": 17.75, "intention": "To Implement Code", "actions": [{"action": "Writing New Code", "tool": "AI Tools"}, {"action": "Search", "tool": null}], "emotion": null},
+        {"id": 6, "start": 30.25, "end": 41, "duration": 10.75, "intention": "custom, with comma", "actions": [{"action": "Foo, bar", "tool": "baz"}, {"action": "Search", "tool": "Slack, Teams"}, {"action": "Reading docs, then coding", "tool": "IDE"}], "emotion": "Negative"},
+        {"id": 4, "start": 41, "end": 50, "duration": 9, "intention": null, "actions": [{"action": "Executing the Code", "tool": "Not using any tools"}], "emotion": "Positive"},
+        {"id": 5, "start": 50, "end": 55, "duration": 5, "intention": "To Resolve Errors", "actions": null, "emotion": "Slightly Negative"}
+    ]
+}

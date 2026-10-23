@@ -168,14 +168,17 @@
           <p class="figure-caption">Figure 4. Logs table displaying all existing annotations for review and editing.</p>
         </figure>
 
-        <p style="margin-top:1rem;">An example of a single annotated interval in JSON format:</p>
+        <p style="margin-top:1rem;">An example of a single annotated interval in the exported JSON (times in seconds; one key per dimension of the label set):</p>
 <pre class="bibtex">{
   "id": 3,
-  "start": "2:33",
-  "end": "3:11",
+  "start": 153.2,
+  "end": 191.45,
+  "duration": 38.25,
   "intention": "To Design/Plan New Code",
-  "action": ["Crafting Query/Prompt"],
-  "tool": ["AI Tools"],
+  "actions": [
+    { "action": "Crafting Query/Prompt", "tool": "AI Tools" },
+    { "action": "Reading and Comprehension", "tool": null }
+  ],
   "emotion": "Slightly Positive"
 }</pre>
       </div>
