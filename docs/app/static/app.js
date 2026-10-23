@@ -54,6 +54,11 @@ async function initialization() {
         const mode = location.protocol === "file:" ? "browser" : declared ? declared.content : "auto";
         store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => showBanner(message, [["Dismiss", hideBanner]]), mode);
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
+        const storageNote = document.getElementById("storage-note");
+        storageNote.textContent = store.mode === "server"
+            ? "Annotations are autosaved to the annotation server's JSON file. Export JSON also downloads a copy."
+            : "Autosave keeps annotations in this browser; it does not write a JSON file. When finished, click Export JSON to download your annotations.";
+        storageNote.classList.remove("hidden");
         const loaded = await store.load();
         // Older (v1) files are converted here; on the server the original was copied to <file>.v1.json at startup
         const normalized = DSTCore.normalizeSession(loaded.data, presetLabelset(DSTPresets.defaultId));
