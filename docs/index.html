@@ -59,6 +59,7 @@
           <span>FSE'26 Paper</span>
         </a>
       </div>
+      <p style="margin-top:0.8rem; font-size:0.9rem;">The online demo autosaves annotations in your browser. Click <strong>Export JSON</strong> when finished to download your annotation file.</p>
     </div>
   </div>
 </section>
@@ -166,7 +167,7 @@
         <span class="step-title">Review &amp; export structured data</span>
       </div>
       <div class="content" style="margin-top:0.6rem;">
-        <p>A live log table shows every annotated interval; participants select a row to replay, edit, or delete it. Annotations are saved automatically and can be exported at any time as structured JSON (re-importable) or CSV, suitable for sequence mining, co-occurrence modeling, or qualitative coding.</p>
+        <p>A live log table shows every annotated interval; participants select a row to replay, edit, or delete it. In the online and offline HTML versions, annotations are autosaved in the current browser; no JSON file is created or updated automatically. Participants click <strong>Export JSON</strong> to download their annotations for submission or later import, or <strong>Export CSV</strong> for analysis. With the annotation server or Docker, autosave writes directly to the configured JSON file. The exported data supports sequence mining, co-occurrence modeling, or qualitative coding.</p>
         <figure>
           <img style="display:block; max-width:520px; margin:0 auto;" src="static/images/logs-table.png" alt="Logs table showing all annotated intervals">
           <p class="figure-caption">Figure 4. Logs table with all annotated intervals of the sample session; the selected row can be replayed, edited, or deleted.</p>

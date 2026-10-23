@@ -26,20 +26,22 @@ DevSelfTrace is a single web page. Pick how participants open it:
 
 | | Install | Annotations are saved | Good for |
 |---|---|---|---|
-| **Online** | nothing | in the browser; export as JSON/CSV | trying it out, remote participants |
-| **Offline page** | nothing | in the browser; export as JSON/CSV | no network, or data must stay on the machine |
+| **Online** | nothing | automatically in the browser; click **Export JSON/CSV** to download a file | trying it out, remote participants |
+| **Offline page** | nothing | automatically in the browser; click **Export JSON/CSV** to download a file | no network, or data must stay on the machine |
 | **Annotation server** | Python 3 + Bottle | to a JSON file you choose | lab studies |
 | **Docker** | Docker | to a JSON file in a mounted folder | lab studies without a Python setup |
 
 In every case **the video stays on the participant's machine**: it is played by the browser and never uploaded.
 
+**Saving:** in the online and offline versions, annotations are autosaved in this browser (they survive a reload), but no file is written. When finished, click **Export JSON** and send that file as the study asks; **Import JSON** continues from it, also in another browser. With the annotation server or Docker, autosave writes the JSON file directly.
+
 ### Online
 
-Open <https://yinanwusoymilk.github.io/DevSelfTrace/app/>. Annotations are kept in the browser (they survive a reload) and can be exported at any time. **Load sample** shows a made-up session if you want to look around first.
+Open <https://yinanwusoymilk.github.io/DevSelfTrace/app/>. No Python or Bottle is needed. **Load sample** shows a made-up session if you want to look around first.
 
 ### Offline page
 
-Download or clone this repository and open `app_study/index.html` in a browser. It works the same as the online version.
+Download or clone this repository and open `app_study/index.html` in a browser. No Python or Bottle is needed.
 
 ### Annotation server
 
@@ -71,10 +73,14 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 
 ## Annotating a recording
 
+![Steps 1 to 3: load the recording (1), set the interval's start and end (2), answer the questions (3)](docs/static/images/gui-rq123.png)
+
 1. **Load the recording** with *Select a video* → *Load Video* (any `.mp4` or `.webm`). No recording at hand? Use **Load sample**.
 2. **Mark an interval:** type the start and end times into *Start* and *End* (e.g. `1:02.5`), or play or scrub to where an activity starts or ends and click *Set from video* next to it. The next interval starts where the previous one ended.
 3. **Answer the questions** on the left. Each question is one dimension of the label set; for some options a short explanation appears under the menu once chosen (e.g. every intention), and most dimensions also accept a custom label via *Other (type your own)*. For the action–tool question, pick an action and a tool and click *+ Add*; an interval can have several pairs, each shown as a chip that × removes.
 4. **Add Log.** The interval appears in the *Logs Table*. Use ‹ › to select an interval, *Replay Event* to watch it again, *Edit Label* to change the answers of the selected interval (only the questions you answer change), and *Delete Log* to remove it.
+
+<img src="docs/static/images/logs-table.png" width="360" alt="Step 4: the Logs Table with every annotated interval of the sample session; the selected row can be replayed, edited or deleted">
 
 **Saving.** Changes are saved automatically about a second after each edit; the label in the gray box under the video, at the end of the *Label set* row, shows whether everything is saved. DevSelfTrace protects long sessions:
 
@@ -176,17 +182,15 @@ Times are in seconds. Interval IDs are never reused within a session, even after
 
 ### CSV
 
-One row per interval: `id, start, end, duration`, then one column per dimension. A pairs dimension gets one column per field (e.g. `actions.action` and `actions.tool`) listing the pairs' values in the same order, separated by `; `. Fields are quoted as needed (RFC 4180), so R, pandas and Excel read the file directly.
+One row per interval (`id, start, end, duration`, then one column per question). Action–tool pairs are split into `actions.action` and `actions.tool`, with several pairs separated by `; `. Opens directly in R, pandas or Excel.
 
-### Files from DevSelfTrace 1
+### Older files
 
-`schemaVersion` is the version of the **file format**. DevSelfTrace 1 (used in the FSE'26 study) wrote an older format (`{"logs": [{"ID", "Timestamps", "Label1", "Label2", "Label3"}]}`), referred to as v1. Such files are converted automatically when opened or imported. On the server, the original is first copied next to it (`p01.json` → `p01.v1.json`) and that copy is never changed. To convert many at once:
+Files saved by the first version of DevSelfTrace are converted automatically when opened or imported (on the server, the original is kept as `p01.v1.json`). To convert many at once:
 
 ```bash
 python scripts/convert_v1_to_v2.py p01.json p02.json --out-dir converted/
 ```
-
-The script never changes its inputs and reports anything it had to guess, such as a custom label containing a comma.
 
 ## Development
 

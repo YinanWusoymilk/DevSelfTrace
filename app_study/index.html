@@ -100,6 +100,7 @@
     .bar-btn { padding: 4px 10px; border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; color: #333; font-size: 13px; white-space: nowrap; cursor: pointer; }
     .bar-btn:hover:not(:disabled) { background: #e6e6e6; }
     .labelset-lock { color: #555; font-size: 13px; cursor: help; }
+    .storage-note { margin: 0; color: #555; font-size: 12px; line-height: 1.5; }
 
     /* Save status at the end of the label set row; any save problem or question follows the gray box. */
     .save-status { margin-left: auto; max-width: 100%; padding: 4px 10px; border-radius: 12px; font-size: 12px; line-height: 1.4; background: #e8e8e8; color: #333; }
@@ -251,6 +252,7 @@
                   <button id="start-over" class="bar-btn tip" data-tip="Clear all annotations and begin again with an empty session, e.g. for the next participant or to switch label sets. You are asked first and can export a copy; on the server the previous version also stays in the .bak backups.">Start over</button>
                   <button id="load-sample" class="bar-btn" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
                 </div>
+                <p id="storage-note" class="storage-note hidden"></p>
               </div>
 
               <!-- Notices and questions stay next to the session controls. -->
