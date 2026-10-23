@@ -216,11 +216,41 @@ test("sortIntervals keeps intervals in video order", () => {
     assert.deepEqual(core.sortIntervals(intervals).map((interval) => interval.id), [1, 2, 3]);
 });
 
-test("describeSelection lists every dimension in order", () => {
-    assert.equal(core.describeSelection(SIASE, {}), "Q1: None, Q2: None, Q3: None");
+test("describeSelection lists every dimension by name, in order", () => {
+    assert.equal(core.describeSelection(SIASE, {}), "Intention: — · Action-Tool Pair: — · Emotion Valence: —");
     assert.equal(
         core.describeSelection(SIASE, fullSelection),
-        "Q1: To Implement Code, Q2: [Writing New Code, AI Tools], Q3: Positive"
+        "Intention: To Implement Code · Action-Tool Pair: [Writing New Code, AI Tools] · Emotion Valence: Positive"
     );
-    assert.equal(core.describeSelection(CUPS, { state: "Not Thinking" }), "Q1: Not Thinking");
+    assert.equal(core.describeSelection(CUPS, { state: "Not Thinking" }), "State: Not Thinking");
+});
+
+test("missingForInterval says what is still needed before an interval can be added", () => {
+    assert.deepEqual(core.missingForInterval(SIASE, {}, null, null), ["start time", "end time", "Intention", "Action-Tool Pair", "Emotion Valence"]);
+    assert.deepEqual(core.missingForInterval(SIASE, fullSelection, 5, 5), ["an end time after the start time"]);
+    assert.deepEqual(core.missingForInterval(SIASE, { ...fullSelection, emotion: "" }, 0, 3), ["Emotion Valence"]);
+    assert.deepEqual(core.missingForInterval(SIASE, fullSelection, 0, 3), []);
+});
+
+test("parseTime reads typed times in seconds, m:ss or h:mm:ss", () => {
+    assert.equal(core.parseTime("62.5"), 62.5);
+    assert.equal(core.parseTime("1:02"), 62);
+    assert.equal(core.parseTime(" 1:02.5 "), 62.5);
+    assert.equal(core.parseTime("1:01:02.5"), 3662.5);
+    assert.equal(core.parseTime("0"), 0);
+    for (const bad of ["", "abc", "-3", "1:60", "1:02:60", "1::2", "1.2.3"]) assert.equal(core.parseTime(bad), null, bad);
+});
+
+test("formatTimeInput shows times to a tenth of a second and round-trips with parseTime", () => {
+    assert.equal(core.formatTimeInput(0), "0:00.0");
+    assert.equal(core.formatTimeInput(62.54), "1:02.5");
+    assert.equal(core.formatTimeInput(119.96), "2:00.0");
+    assert.equal(core.formatTimeInput(null), "");
+    for (const seconds of [0, 7.3, 62.5, 599.9, 3725.1]) assert.equal(core.parseTime(core.formatTimeInput(seconds)), seconds);
+});
+
+test("validateLabelset keeps an optional help text", () => {
+    const withHelp = core.validateLabelset(minimal({ dimensions: [{ id: "a", label: "A", type: "single", help: "Pick one.", options: ["x"] }] }));
+    assert.equal(withHelp.labelset.dimensions[0].help, "Pick one.");
+    assert.equal(core.validateLabelset(minimal()).labelset.dimensions[0].help, undefined);
 });

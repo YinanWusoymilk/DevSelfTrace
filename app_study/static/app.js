@@ -28,13 +28,17 @@ var button_delete_row = document.getElementById("deleteRow");
 var button_edit_label = document.getElementById("editLabel");
 var setStartTimeButton = document.getElementById("setStartTime");
 var setEndTimeButton = document.getElementById("setEndTime");
+var startTimeInput = document.getElementById("startTimeInput");
+var endTimeInput = document.getElementById("endTimeInput");
+var toastsEl = document.getElementById("toasts");
 var saveStatusEl = document.getElementById("save-status");
 var saveBannerEl = document.getElementById("save-banner");
 
 // Label set (dimensions and options) and the answers chosen for the current interval
 var labelset = null;
-var selection = {}; // dimension id -> option (single) or list of [a, b] pairs
+var selection = {}; // dimension id -> option (single) or list of pairs ({ field id -> value })
 var pairDrafts = {}; // dimension id -> { field id -> value } for the pair being put together
+var questionResets = []; // one function per question that clears its controls
 var questionsContainer = document.getElementById("questionsView");
 var labelsetSelect = document.getElementById("labelset-select");
 var labelsetLoadButton = document.getElementById("labelset-load");
@@ -48,7 +52,7 @@ async function initialization() {
         // The hosted copy (docs/app) and pages opened from disk never have a server to ask
         const declared = document.querySelector('meta[name="devselftrace-mode"]');
         const mode = location.protocol === "file:" ? "browser" : declared ? declared.content : "auto";
-        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message), mode);
+        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => showBanner(message, [["Dismiss", hideBanner]]), mode);
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
         const loaded = await store.load();
         // Older (v1) files are converted here; on the server the original was copied to <file>.v1.json at startup
@@ -196,20 +200,31 @@ function loadSample() {
 function loadSessionText(text, source, done) {
     const result = DSTCore.parseSessionFile(text, presetLabelset(DSTPresets.defaultId));
     if (!result.ok) {
-        alert(`${source} could not be imported: ${result.error}.`);
+        toast(`${source} could not be imported: ${result.error}.`, "error");
         return;
     }
+    const replace = () => {
+        session = result.session;
+        index_log = 0;
+        applyLabelset(session.labelset);
+        autoSaveLogs();
+        const converted = result.converted ? " (converted from the older DevSelfTrace format)" : "";
+        const notes = result.warnings.length > 0 ? ` Notes: ${result.warnings.join(" ")}` : "";
+        showBanner(`${done.replace("{n}", session.intervals.length)}${converted}.${notes}`, [["Dismiss", hideBanner]]);
+    };
     const count = session.intervals.length;
-    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in ${source}? Export the current ones first if you want to keep them.`)) {
+    if (count === 0) {
+        replace();
         return;
     }
-    session = result.session;
-    index_log = 0;
-    applyLabelset(session.labelset);
-    autoSaveLogs();
-    const converted = result.converted ? " (converted from the older DevSelfTrace format)" : "";
-    const notes = result.warnings.length > 0 ? ` Notes: ${result.warnings.join(" ")}` : "";
-    showBanner(`${done.replace("{n}", session.intervals.length)}${converted}.${notes}`, [["Dismiss", hideBanner]]);
+    showBanner(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in ${source}? Export the current ones first if you want to keep them.`, [
+        ["Export current", exportJson],
+        ["Replace", () => {
+            hideBanner();
+            replace();
+        }],
+        ["Cancel", hideBanner],
+    ]);
 }
 
 // Clear the annotations (keeping the label set, which can then be changed)
@@ -282,14 +297,14 @@ window.addEventListener("pagehide", () => {
 function populateLogsTable() {
     if (!labelset) return;
     // One column per dimension of the label set
-    const headers = labelset.dimensions.map((dim, i) => `<th>Question ${i + 1}</th>`).join("");
+    const escape = DSTCore.escapeHtml;
+    const headers = labelset.dimensions.map((dim) => `<th>${escape(dim.label)}</th>`).join("");
     table_events.innerHTML = `
         <tr>
             <th>ID</th>
-            <th>Timestamps</th>
+            <th>Time</th>
             ${headers}
         </tr>`;
-    const escape = DSTCore.escapeHtml;
     session.intervals.forEach((interval) => {
         const startTimestamp = DSTCore.formatTime(interval.start);
         const endTimestamp = DSTCore.formatTime(interval.end);
@@ -356,7 +371,7 @@ function applyLabelset(newLabelset) {
 // Switching is only allowed before the first annotation, so logs never mix label sets
 function switchLabelset(newLabelset) {
     if (session.intervals.length > 0) {
-        alert(`This session already has annotations made with the "${labelset.name}" label set. Export them and click "New session" to use a different label set.`);
+        toast(`This session already has annotations made with the "${labelset.name}" label set. Export them and click "New session" to use a different label set.`, "error");
         renderLabelsetPicker();
         return;
     }
@@ -419,18 +434,23 @@ labelsetFileInput.addEventListener("change", async () => {
     try {
         raw = JSON.parse(await file.text());
     } catch (error) {
-        alert(`"${file.name}" is not valid JSON: ${error.message}`);
+        toast(`"${file.name}" is not valid JSON: ${error.message}`, "error");
         return;
     }
     const checked = DSTCore.validateLabelset(raw);
     if (!checked.ok) {
-        alert(`"${file.name}" is not a valid label set:\n- ${checked.errors.slice(0, 8).join("\n- ")}`);
+        toast(`"${file.name}" is not a valid label set: ${checked.errors.slice(0, 5).join("; ")}`, "error");
         return;
     }
     switchLabelset(checked.labelset);
 });
 
 // ---- Questions ---------------------------------------------------------------
+// One block per dimension of the label set: its name, question and optional help text, then a dropdown
+// ("single") or a row of dropdowns that adds pairs shown as removable chips ("pairs").
+// Where custom labels are allowed, the dropdown ends with "Other…", which opens a text box in place.
+
+const OTHER = "__other__";
 
 function element(tag, className, text) {
     const node = document.createElement(tag);
@@ -439,7 +459,10 @@ function element(tag, className, text) {
     return node;
 }
 
-function optionSelect(placeholder, options) {
+// A dropdown, the text box for "Other…", and a line showing the chosen option's hint.
+// onChange receives the chosen option, the typed text, or "" while nothing is chosen.
+function choiceControl(placeholder, options, allowCustom, label, onChange) {
+    const wrap = element("div", "choice");
     const select = element("select", "dimension-select");
     const first = new Option(placeholder, "");
     first.disabled = true;
@@ -447,139 +470,151 @@ function optionSelect(placeholder, options) {
     select.appendChild(first);
     options.forEach((option) => {
         const item = new Option(option.value, option.value);
-        if (option.hint) item.title = option.hint; // shown when hovering the option
+        if (option.hint) item.title = option.hint;
         select.appendChild(item);
     });
-    return select;
-}
+    if (allowCustom) select.appendChild(new Option("Other… (type your own)", OTHER));
 
-function selectRow(label, select) {
-    const row = element("div", "dimension-row");
-    row.append(element("span", "dimension-name", label), select);
-    return row;
-}
+    const other = element("input", "other-input hidden");
+    other.type = "text";
+    other.placeholder = `Type your own ${label.toLowerCase()}`;
+    const hint = element("div", "option-hint hidden");
+    const hints = new Map(options.filter((option) => option.hint).map((option) => [option.value, option.hint]));
 
-// Text box + "Add Custom <label>" button; onAdd receives the trimmed text
-function customInput(label, onAdd) {
-    const container = element("div", "state-input-container-inline");
-    const input = element("input", "state-input");
-    input.type = "text";
-    input.placeholder = `Enter custom ${label.toLowerCase()}`;
-    const button = element("button", "custom-state-btn", `Add Custom ${label}`);
-    button.addEventListener("click", () => {
-        const value = input.value.trim();
-        if (!value) {
-            alert(`Enter a valid custom ${label.toLowerCase()}.`);
-            return;
-        }
-        onAdd(value);
-        input.value = "";
+    const report = () => onChange(select.value === OTHER ? other.value.trim() : select.value);
+    select.addEventListener("change", () => {
+        const isOther = select.value === OTHER;
+        other.classList.toggle("hidden", !isOther);
+        if (isOther) other.focus();
+        const text = hints.get(select.value) || "";
+        hint.textContent = text; // also shown here because some browsers do not show hover text on options
+        hint.classList.toggle("hidden", !text);
+        report();
     });
-    container.append(input, button);
-    return container;
+    other.addEventListener("input", report);
+
+    wrap.append(select, other, hint);
+    wrap.other = other;
+    wrap.reset = () => {
+        select.value = "";
+        other.value = "";
+        other.classList.add("hidden");
+        hint.classList.add("hidden");
+    };
+    return wrap;
 }
 
-// One block per dimension: a dropdown (single) or two dropdowns that add pairs (pairs)
 function renderQuestions() {
     selection = {};
     pairDrafts = {};
+    questionResets = [];
     questionsContainer.replaceChildren();
-    labelset.dimensions.forEach((dim, i) => {
-        const block = element("div", "state-buttons-container-wrapper");
-        block.appendChild(element("label", "dimension-prompt", `Q${i + 1}. ${dim.prompt}`));
+    labelset.dimensions.forEach((dim) => {
+        const block = element("section", "dimension");
+        block.appendChild(element("h3", "dimension-title", dim.label));
+        if (dim.prompt !== dim.label) block.appendChild(element("p", "dimension-prompt", dim.prompt));
+        if (dim.help) block.appendChild(element("p", "dimension-help", dim.help));
         if (dim.type === "pairs") renderPairsQuestion(block, dim);
         else renderSingleQuestion(block, dim);
-        questionsContainer.append(block, element("hr", "dimension-divider"));
+        questionsContainer.appendChild(block);
     });
-    updateSelectedStatesDisplay();
+    updateSummary();
 }
 
 function renderSingleQuestion(block, dim) {
-    const select = optionSelect(dim.placeholder, dim.options);
-    select.addEventListener("change", () => {
-        selection[dim.id] = select.value;
-        updateSelectedStatesDisplay();
+    const choice = choiceControl(dim.placeholder, dim.options, dim.allowCustom, dim.label, (value) => {
+        selection[dim.id] = value;
+        updateSummary();
     });
-    const rows = element("div", "dimension-rows");
-    rows.appendChild(selectRow(dim.label, select));
-    block.appendChild(rows);
-    if (dim.allowCustom) {
-        block.appendChild(customInput(dim.label, (value) => {
-            selection[dim.id] = value;
-            updateSelectedStatesDisplay();
-        }));
-    }
+    block.appendChild(choice);
+    questionResets.push(choice.reset);
 }
 
 function renderPairsQuestion(block, dim) {
     pairDrafts[dim.id] = {};
-    const rows = element("div", "dimension-rows");
-    const selects = dim.fields.map((field) => {
-        const select = optionSelect(field.placeholder, field.options);
-        select.addEventListener("change", () => {
-            pairDrafts[dim.id][field.id] = select.value;
+    const row = element("div", "pair-row");
+    const choices = dim.fields.map((field) => {
+        const choice = choiceControl(field.placeholder, field.options, dim.allowCustom, field.label, (value) => {
+            pairDrafts[dim.id][field.id] = value;
         });
-        rows.appendChild(selectRow(field.label, select));
-        if (dim.allowCustom) {
-            const custom = element("div");
-            custom.append(
-                element("p", "dimension-note", `* Only use the "Add Custom ${field.label}" button below to add a custom ${field.label.toLowerCase()}.`),
-                customInput(field.label, (value) => {
-                    pairDrafts[dim.id][field.id] = value;
-                    alert(`Custom ${field.label} "${value}" added.`);
-                })
-            );
-            rows.appendChild(custom);
-        }
-        return select;
+        choice.classList.add("pair-field");
+        // Small caption above each dropdown, so the dropdown itself can stay short
+        choice.prepend(element("div", "field-label", field.optional ? `${field.label} (optional)` : field.label));
+        row.appendChild(choice);
+        return choice;
     });
-    block.appendChild(rows);
+    const addButton = element("button", "pair-add", "+ Add");
+    addButton.title = `Add this ${dim.label.toLowerCase()}; an interval can have several`;
+    row.appendChild(addButton);
+    const chips = element("div", "chips");
 
-    const list = element("ul", "pair-list");
-    const addButton = element("button", "custom-state-btn color-10 add-pair-btn", `Add ${dim.label}`);
-    addButton.addEventListener("click", () => {
+    const renderChips = () => {
+        chips.replaceChildren();
+        const pairs = selection[dim.id] || [];
+        if (pairs.length === 0) {
+            chips.appendChild(element("span", "chips-empty", `No ${dim.label.toLowerCase()} added yet`));
+            return;
+        }
+        pairs.forEach((pair, i) => {
+            const text = dim.fields.map((field) => pair[field.id]).filter(Boolean).join(" · ");
+            const chip = element("span", "chip", text);
+            const remove = element("button", "", "×");
+            remove.title = "Remove";
+            remove.setAttribute("aria-label", `Remove ${text}`);
+            remove.addEventListener("click", () => {
+                selection[dim.id] = pairs.filter((_, j) => j !== i);
+                renderChips();
+                updateSummary();
+            });
+            chip.appendChild(remove);
+            chips.appendChild(chip);
+        });
+    };
+
+    const addPair = () => {
         const draft = pairDrafts[dim.id];
         const missing = dim.fields.find((field) => !field.optional && !draft[field.id]);
         if (missing) {
-            alert(`Please select ${missing.label.toLowerCase()}.`);
+            toast(`Choose the ${missing.label.toLowerCase()} first.`, "error");
             return;
         }
         const pair = {};
         dim.fields.forEach((field) => (pair[field.id] = draft[field.id] || null)); // optional fields left empty are null
         selection[dim.id] = (selection[dim.id] || []).concat([pair]);
-        list.appendChild(element("li", "", DSTCore.formatValue(dim, [pair])));
-        updateSelectedStatesDisplay();
-
         pairDrafts[dim.id] = {};
-        selects.forEach((select) => (select.value = ""));
-    });
-    const addRow = element("div", "add-pair-row");
-    addRow.appendChild(addButton);
+        choices.forEach((choice) => choice.reset());
+        renderChips();
+        updateSummary();
+    };
+    addButton.addEventListener("click", addPair);
+    choices.forEach((choice) => choice.other.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") addPair();
+    }));
 
-    const clearButton = element("button", "clear-pairs-btn", "Clear Selection");
-    clearButton.addEventListener("click", () => {
-        selection[dim.id] = [];
-        list.replaceChildren();
-        updateSelectedStatesDisplay();
-        alert(`${dim.label} selections have been cleared!`);
+    block.append(row, chips);
+    renderChips();
+    questionResets.push(() => {
+        pairDrafts[dim.id] = {};
+        choices.forEach((choice) => choice.reset());
+        renderChips();
     });
-
-    block.append(
-        element("p", "dimension-note", `* Use the "Add ${dim.label}" button to add selected or entered ${dim.label.toLowerCase()}.`),
-        addRow,
-        clearButton,
-        element("h4", "pair-list-title", `Selected ${dim.label}s:`),
-        list
-    );
 }
 
-// Clear the answers after a log is added or edited
+// Clear the answers after an interval is added or edited
 function resetSelection() {
     selection = {};
-    Object.keys(pairDrafts).forEach((id) => (pairDrafts[id] = {}));
-    questionsContainer.querySelectorAll("select").forEach((select) => (select.value = ""));
-    questionsContainer.querySelectorAll(".pair-list").forEach((list) => list.replaceChildren());
-    updateSelectedStatesDisplay();
+    questionResets.forEach((reset) => reset());
+    updateSummary();
+}
+
+// Short message at the bottom of the page that goes away by itself (instead of a pop-up)
+function toast(message, kind) {
+    const node = element("div", kind === "error" ? "toast error" : "toast", message);
+    toastsEl.appendChild(node);
+    setTimeout(() => {
+        node.classList.add("fade");
+        setTimeout(() => node.remove(), 400);
+    }, kind === "error" ? 6000 : 3000);
 }
 
 // Highlight row during navigation
@@ -594,38 +629,83 @@ function highlightRow(index) {
     });
 }
 
-function updateSelectedStatesDisplay() {
-    state_text.innerText = `Selected States: ${DSTCore.describeSelection(labelset, selection)}`;
+// Summary of the interval being annotated, and what is still needed before "Add Log" works
+function updateSummary() {
+    if (!labelset) return;
+    const show = (seconds) => (seconds === null ? "—" : DSTCore.formatTimeInput(seconds));
+    state_text.replaceChildren(element("div", "", `Current interval: ${show(startTime)} – ${show(endTime)} · ${DSTCore.describeSelection(labelset, selection)}`));
+    const missing = DSTCore.missingForInterval(labelset, selection, startTime, endTime);
+    if (missing.length > 0) state_text.appendChild(element("div", "missing", `Still needed to add it: ${missing.join(", ")}`));
+    button_add_row.disabled = readOnly || missing.length > 0;
+    button_add_row.title = missing.length > 0 ? `Still needed: ${missing.join(", ")}` : "Add the interval with these answers";
 }
 
-// Set start time
+// Start / end times: typed into the boxes, or taken from the video with "Set from video"
 setStartTimeButton.onclick = function () {
     startTime = parseFloat(video.currentTime.toFixed(3));
     updateSelectedTimes();
 };
 
-// Set end time
 setEndTimeButton.onclick = function () {
     endTime = parseFloat(video.currentTime.toFixed(3));
     updateSelectedTimes();
 };
 
-// Update the displayed times
+// Show the times in the boxes
 function updateSelectedTimes() {
-    document.getElementById("startTimeDisplay").innerText = `Start Time: ${DSTCore.formatTimeForDisplay(startTime)}`;
-    document.getElementById("endTimeDisplay").innerText = `End Time: ${DSTCore.formatTimeForDisplay(endTime)}`;
+    startTimeInput.value = DSTCore.formatTimeInput(startTime);
+    endTimeInput.value = DSTCore.formatTimeInput(endTime);
+    startTimeInput.classList.remove("invalid");
+    endTimeInput.classList.remove("invalid");
+    updateSummary();
 }
+
+// Read a typed time; an empty box clears it. Returns undefined (and marks the box) if it is not a time.
+function readTimeInput(input) {
+    const text = input.value.trim();
+    if (text === "") {
+        input.classList.remove("invalid");
+        return null;
+    }
+    const seconds = DSTCore.parseTime(text);
+    if (seconds === null) {
+        input.classList.add("invalid");
+        toast(`"${text}" is not a time. Type minutes:seconds such as 1:02.5, or just seconds.`, "error");
+        return undefined;
+    }
+    input.classList.remove("invalid");
+    input.value = DSTCore.formatTimeInput(seconds);
+    return seconds;
+}
+
+startTimeInput.addEventListener("change", () => {
+    const seconds = readTimeInput(startTimeInput);
+    if (seconds !== undefined) startTime = seconds;
+    updateSummary();
+});
+endTimeInput.addEventListener("change", () => {
+    const seconds = readTimeInput(endTimeInput);
+    if (seconds !== undefined) endTime = seconds;
+    updateSummary();
+});
+[startTimeInput, endTimeInput].forEach((input) => input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") input.blur(); // applies the typed time
+}));
+
+document.getElementById("jumpToStart").addEventListener("click", () => {
+    if (startTime === null) {
+        toast("Set a start time first.", "error");
+        return;
+    }
+    video.currentTime = startTime;
+});
 
 // Add log row
 button_add_row.onclick = function () {
-    if (startTime === null || endTime === null || startTime >= endTime) {
-      alert("Set valid start and end times.");
-      return;
-    }
-
-    // Every dimension of the label set needs an answer
-    if (!DSTCore.isSelectionComplete(labelset, selection)) {
-        alert("Please answer all the questions to add a log.");
+    // Times and every dimension of the label set are needed (the button stays disabled until then)
+    const missing = DSTCore.missingForInterval(labelset, selection, startTime, endTime);
+    if (missing.length > 0) {
+        toast(`Still needed: ${missing.join(", ")}.`, "error");
         return;
     }
 
@@ -639,15 +719,15 @@ button_add_row.onclick = function () {
     populateLogsTable();
     autoSaveLogs();
 
-    alert("Log added successfully!");
+    toast(`Interval #${interval.id} added (${DSTCore.formatTime(interval.start)}–${DSTCore.formatTime(interval.end)}).`);
     // Overlaps are allowed (activities can overlap), but are often a slip, so point them out
     if (overlaps.length > 0) {
         const list = overlaps.map((other) => `#${other.id} (${DSTCore.formatTime(other.start)}–${DSTCore.formatTime(other.end)})`).join(", ");
         showBanner(`The new interval #${interval.id} overlaps ${list}. It was added anyway; edit or delete it if that was not intended.`, [["Dismiss", hideBanner]]);
     }
 
-    // Reset times and answers
-    startTime = null;
+    // The next interval usually starts where this one ended
+    startTime = endTime;
     endTime = null;
     updateSelectedTimes();
     resetSelection();
@@ -656,10 +736,12 @@ button_add_row.onclick = function () {
 // Delete log row
 button_delete_row.onclick = function () {
     const selectedRow = document.querySelector(".highlighted-row");
-    if (selectedRow) {
-        const rowIndex = Array.from(table_events.rows).indexOf(selectedRow) - 1; // Adjust for header
-        deleteRow(rowIndex);
+    if (!selectedRow) {
+        toast("Select a row first with ‹ › (or in the Logs Table).", "error");
+        return;
     }
+    const rowIndex = Array.from(table_events.rows).indexOf(selectedRow) - 1; // Adjust for header
+    deleteRow(rowIndex);
 };
 
 // Edit label
@@ -670,7 +752,7 @@ button_edit_label.onclick = function () {
     );
 
     if (!selectedRow) {
-        alert("Please navigate to a row to edit its labels.");
+        toast("Select a row first with ‹ › (or in the Logs Table).", "error");
         return;
     }
 
@@ -683,18 +765,18 @@ button_edit_label.onclick = function () {
     highlightRow(rowIndex); // keep the edited row selected, e.g. for another edit
     autoSaveLogs();
 
-    alert("Log edited successfully!");
+    toast(`Interval #${session.intervals[rowIndex].id} updated.`);
 
     resetSelection();
 };
 
 // Delete log row
 function deleteRow(index) {
-    session.intervals.splice(index, 1);
+    const [removed] = session.intervals.splice(index, 1);
     index_log = DSTCore.clampIndex(index_log, session.intervals.length); // never point past the last row
     populateLogsTable();
     autoSaveLogs();
-    alert("Row deleted successfully!");
+    toast(`Interval #${removed.id} deleted.`);
 }
 
 // Auto-save logs (debounced; see showSaveStatus for progress)
@@ -782,7 +864,7 @@ const loadVideoButton = document.getElementById("loadVideoButton");
 // Load selected video
 loadVideoButton.addEventListener("click", () => {
     if (!videoUploadInput.files || videoUploadInput.files.length === 0) {
-        alert("Please select a video file.");
+        toast("Choose a video file first.", "error");
         return;
     }
 
@@ -793,7 +875,7 @@ loadVideoButton.addEventListener("click", () => {
 
     video.src = fileURL; // Set the video source to the selected file
     video.playbackRate = parseFloat(speed_slider.value); // keep the chosen speed
-    alert("Video loaded successfully!");
+    toast(`Loaded "${file.name}".`);
 });
 
 // Initialize everything

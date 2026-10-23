@@ -131,6 +131,7 @@ A **label set** defines the questions: its dimensions, their options and hover e
 | `id` | Key under which the answer is stored, e.g. `"hypothesis"`. Letters, digits, `-`, `_`; not `id`, `start`, `end` or `duration`. |
 | `label` | Short name next to the dropdown (required). |
 | `prompt` | The question shown above it (defaults to `label`). |
+| `help` | Optional explanation shown under the question. |
 | `type` | `"single"`: pick one option. `"pairs"`: add one or more pairs of two `fields`, e.g. an action and the tool used for it. |
 | `options` | Strings, or `{ "value": ..., "hint": ... }` to show an explanation on hover. |
 | `allowCustom` | `false` turns off custom labels for this dimension (default `true`). |

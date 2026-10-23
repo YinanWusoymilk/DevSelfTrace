@@ -23,6 +23,25 @@
         return formatTime(seconds);
     }
 
+    // Time for the editable start/end boxes, to a tenth of a second: 62.54 -> "1:02.5" ("" when not set)
+    function formatTimeInput(seconds) {
+        if (seconds === null || seconds === undefined) return "";
+        const tenths = Math.round(seconds * 10);
+        const minutes = Math.floor(tenths / 600);
+        const rest = (tenths - minutes * 600) / 10;
+        return `${minutes}:${rest.toFixed(1).padStart(4, "0")}`;
+    }
+
+    // Read a typed time: "62.5", "1:02", "1:02.5" or "1:01:02.5". Returns seconds, or null if it is not a time.
+    function parseTime(text) {
+        const value = String(text === null || text === undefined ? "" : text).trim();
+        if (!/^\d+(\.\d+)?$|^\d+:\d{1,2}(\.\d+)?$|^\d+:\d{1,2}:\d{1,2}(\.\d+)?$/.test(value)) return null;
+        const parts = value.split(":").map(Number);
+        if (parts.slice(1).some((part) => part >= 60)) return null;
+        const seconds = parts.reduce((total, part) => total * 60 + part, 0);
+        return Math.round(seconds * 1000) / 1000;
+    }
+
     // Escape text before it is inserted with innerHTML (custom labels are free text)
     function escapeHtml(value) {
         return String(value)
@@ -106,6 +125,7 @@
                 allowCustom: dim.allowCustom !== false,
                 placeholder: isText(dim.placeholder) ? dim.placeholder : "Select an option",
             };
+            if (isText(dim.help)) result.help = dim.help; // optional explanation shown under the question
             if (dim.type === "single") {
                 result.options = normalizeOptions(dim.options, `${path}.options`, errors);
             } else if (dim.type === "pairs") {
@@ -265,11 +285,23 @@
         return isText(value) ? value : "—";
     }
 
-    // One-line summary of the current selection, e.g. "Q1: x, Q2: [a, b], Q3: None"
+    // One-line summary of the current selection, e.g. "Intention: x · Action-Tool Pair: [a, b] · Emotion Valence: —"
     function describeSelection(labelset, selection) {
         return labelset.dimensions
-            .map((dim, i) => `Q${i + 1}: ${hasAnswer(dim, selection[dim.id]) ? formatValue(dim, selection[dim.id]) : "None"}`)
-            .join(", ");
+            .map((dim) => `${dim.label}: ${hasAnswer(dim, selection[dim.id]) ? formatValue(dim, selection[dim.id]) : "—"}`)
+            .join(" · ");
+    }
+
+    // What is still needed before the interval can be added, e.g. ["end time", "Emotion Valence"]
+    function missingForInterval(labelset, selection, startTime, endTime) {
+        const missing = [];
+        if (startTime === null || startTime === undefined) missing.push("start time");
+        if (endTime === null || endTime === undefined) missing.push("end time");
+        else if (startTime !== null && startTime !== undefined && endTime <= startTime) missing.push("an end time after the start time");
+        labelset.dimensions.forEach((dim) => {
+            if (!hasAnswer(dim, selection[dim.id])) missing.push(dim.label);
+        });
+        return missing;
     }
 
     // ---- Older files (format v1) ---------------------------------------------------
@@ -473,6 +505,8 @@
         SCHEMA_VERSION: SCHEMA_VERSION,
         formatTime: formatTime,
         formatTimeForDisplay: formatTimeForDisplay,
+        formatTimeInput: formatTimeInput,
+        parseTime: parseTime,
         escapeHtml: escapeHtml,
         validateLabelset: validateLabelset,
         resolveLabelset: resolveLabelset,
@@ -486,6 +520,7 @@
         clampIndex: clampIndex,
         formatValue: formatValue,
         describeSelection: describeSelection,
+        missingForInterval: missingForInterval,
         isV1Session: isV1Session,
         parseV1Pairs: parseV1Pairs,
         convertV1: convertV1,

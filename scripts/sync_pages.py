@@ -2,13 +2,17 @@
 
 docs/ is the GitHub Pages site (https://yinanwusoymilk.github.io/DevSelfTrace/), so the copy is
 online at .../DevSelfTrace/app/. app_study/ stays the one place to edit the page; the copy only
-differs in declaring browser mode, so it never asks for server.py.
+differs in declaring browser mode, so it never asks for server.py, and in adding a version tag
+(?v=<hash of the file>) to its script and style links, so browsers never mix an updated file
+with a cached old one after an update.
 
 Usage:
     python scripts/sync_pages.py          # rewrite docs/app/ from app_study/
     python scripts/sync_pages.py --check  # exit 1 if docs/app/ is out of date
 """
+import hashlib
 import os
+import re
 import shutil
 import sys
 
@@ -27,7 +31,6 @@ def expected_files():
         page = f.read()
     if MODE_AUTO not in page:
         raise SystemExit('app_study/index.html is missing <meta name="devselftrace-mode" content="auto" />')
-    files["index.html"] = page.replace(MODE_AUTO, MODE_BROWSER)
     static = os.path.join(SOURCE, "static")
     for folder, _, names in os.walk(static):
         for name in names:
@@ -36,6 +39,16 @@ def expected_files():
             path = os.path.join(folder, name)
             with open(path, "rb") as f:
                 files[os.path.relpath(path, SOURCE)] = f.read()
+
+    def versioned(match):
+        path = match.group(2).decode()
+        if path not in files:
+            return match.group(0)
+        tag = hashlib.sha1(files[path]).hexdigest()[:8].encode()
+        return match.group(1) + b'="' + match.group(2) + b"?v=" + tag + b'"'
+
+    page = page.replace(MODE_AUTO, MODE_BROWSER)
+    files["index.html"] = re.sub(rb'(src|href)="(static/[^"?]+)"', versioned, page)
     return files
 
 

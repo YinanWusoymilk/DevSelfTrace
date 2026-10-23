@@ -203,6 +203,7 @@
                     "id": "activity",
                     "label": "Activity",
                     "prompt": "What were you mainly doing in this time interval?",
+                    "help": "If you did several things, pick the one that took most of the time.",
                     "type": "single",
                     "allowCustom": true,
                     "placeholder": "Select an activity",
