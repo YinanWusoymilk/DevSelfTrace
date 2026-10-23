@@ -10,6 +10,7 @@
 - **Project page:** <https://yinanwusoymilk.github.io/DevSelfTrace/>
 - **Demo video:** <https://youtu.be/pXlFTPROoWk>
 - **Study that used it (FSE'26):** <https://doi.org/10.1145/3808120>
+- **Survey results (earlier version, N=33):** [survey-results.md](survey-results.md)
 
 ## Contents
 

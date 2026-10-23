@@ -180,3 +180,22 @@ footer.footer {
 footer.footer a {
   color: hsl(204, 86%, 35%);
 }
+
+/* Full survey results under "Evaluation Highlights": numbers centered, group rows shaded */
+.survey-table {
+  font-size: 0.9rem;
+  background: transparent;
+}
+.survey-table th,
+.survey-table td {
+  vertical-align: middle;
+}
+.survey-table td:not(:first-child),
+.survey-table thead th:not(:first-child) {
+  text-align: center;
+  white-space: nowrap;
+}
+.survey-table tbody th {
+  background: #f0f2f7;
+  font-weight: 600;
+}
