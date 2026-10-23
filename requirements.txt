@@ -1,0 +1,2 @@
+# Only needed for the optional annotation server (app_study/server.py); the page itself has no dependencies.
+bottle==0.13.4

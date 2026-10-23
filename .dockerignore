@@ -1,0 +1,8 @@
+# The image only needs the server, the page and the label sets
+*
+!requirements.txt
+!app_study/
+!labels/
+app_study/data/
+**/__pycache__
+**/.DS_Store

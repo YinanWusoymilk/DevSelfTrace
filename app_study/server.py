@@ -6,8 +6,7 @@ import argparse
 import os
 import shutil
 import tempfile
-from time import sleep
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(description="DevSelfTrace annotation server: serves the page and saves annotations to a JSON file.")
 
 app = bottle.Bottle()
 logs = ""
@@ -132,21 +131,16 @@ def serve_video():
         return static_file(os.path.basename(video_path), root=os.path.dirname(video_path))
     return {"status": "error", "message": "No video file provided"}
 
-class Demo(object):
-    def __init__(self):
-        self.close_thread = True
-        threading.Thread(target=self.demo_backend).start()
-        app.run(host='localhost', port=8080)
-        try:
-            while True:
-                sleep(1)
-        except KeyboardInterrupt:
-            print("Closing server...")
-            self.close_thread = False
-
-    def demo_backend(self):
-        while self.close_thread:
-            sleep(0.01)
+def prepare_logs_file(path, create):
+    """Make sure the logs file exists. With create, a missing file (and its folder) is created as
+    an empty session; without it, a missing file is an error (most likely a typo in -p)."""
+    if os.path.isfile(path):
+        return False
+    if not create:
+        raise FileNotFoundError(f"JSON file not found: {path} (add --create to start a new one)")
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    atomic_write_json(path, {"tool": "DevSelfTrace", "schemaVersion": 2, "intervals": []})
+    return True
 
 def keep_v1_copy(path):
     """If path holds annotations in the old v1 format ({"logs": [...]}), copy it to
@@ -176,10 +170,13 @@ def load_labelset(path):
 parser.add_argument('-p', '--path', help='Path to logs JSON file', required=True)
 parser.add_argument('-v', '--video', help='Path to video file', required=False)
 parser.add_argument('-l', '--labels', help='Path to a label set JSON file (default: labels/s-iase.json)', required=False)
+parser.add_argument('--create', action='store_true', help='Create the logs file if it does not exist yet')
+parser.add_argument('--host', default='localhost', help='Address to listen on (default: localhost; use 0.0.0.0 in a container)')
+parser.add_argument('--port', type=int, default=8080, help='Port to listen on (default: 8080)')
 
-def main():
+def main(argv=None):
     global json_path, video_path, labelset
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     try:
         # Convert to absolute paths
@@ -187,8 +184,8 @@ def main():
         video_path = os.path.abspath(args.video) if args.video else None
 
         # Validate if files are present
-        if not os.path.isfile(json_path):
-            raise FileNotFoundError(f"JSON file not found: {json_path}")
+        if prepare_logs_file(json_path, args.create):
+            print(f"Created a new logs file: {json_path}")
         if video_path and not os.path.isfile(video_path):
             raise FileNotFoundError(f"Video file not found: {video_path}")
         if args.labels:
@@ -196,13 +193,17 @@ def main():
         v1_copy = keep_v1_copy(json_path)
         if v1_copy:
             print(f"{json_path} uses the old v1 format; the page will convert it. The original is kept as {v1_copy}")
-
-        Demo()
     except Exception as e:
         print(f"Error: {e}")
+        return 1
+
+    shown = "localhost" if args.host in ("0.0.0.0", "::") else args.host
+    print(f"DevSelfTrace: open http://{shown}:{args.port}/ (annotations are saved to {json_path})", flush=True)
+    app.run(host=args.host, port=args.port)
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
 
 
 # Example Usage:-
@@ -210,5 +211,7 @@ if __name__ == "__main__":
 # python3 server.py -p /absolute/path/to/log.json -v /absolute/path/to/video.mp4
 # OR, with a different label set (see labels/)
 # python3 server.py -p /absolute/path/to/log.json -l ../labels/cups.json
+# OR, starting a new logs file, reachable from other machines / a container's host
+# python3 server.py -p data/p01.json --create --host 0.0.0.0 --port 8080
 # OR
 # python3 server.py -p /absolute/path/to/log.json (When video is not to be provided via command line but is to be provided via the user-interface)
