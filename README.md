@@ -72,8 +72,8 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 ## Annotating a recording
 
 1. **Load the recording** with *Select a video* → *Load Video* (any `.mp4` or `.webm`). No recording at hand? Use **Load sample**.
-2. **Mark an interval:** play or scrub to where an activity starts and click *Set Start Time*, then to where it ends and click *Set End Time*.
-3. **Answer the questions** on the left. Each question is one dimension of the label set; some options show a short explanation on hover (e.g. every intention), and most dimensions also accept a custom label. For the action–tool question, pick an action and a tool and click *Add Action-Tool Pair*; an interval can have several pairs.
+2. **Mark an interval:** type the start and end times into *Start* and *End* (e.g. `1:02.5`), or play or scrub to where an activity starts or ends and click *Set from video* next to it. The next interval starts where the previous one ended.
+3. **Answer the questions** on the left. Each question is one dimension of the label set; for some options a short explanation appears under the menu once chosen (e.g. every intention), and most dimensions also accept a custom label via *Other (type your own)*. For the action–tool question, pick an action and a tool and click *+ Add*; an interval can have several pairs, each shown as a chip that × removes.
 4. **Add Log.** The interval appears in the *Logs Table*. Use ‹ › to select an interval, *Replay Event* to watch it again, *Edit Label* to change the answers of the selected interval (only the questions you answer change), and *Delete Log* to remove it.
 
 **Saving.** Changes are saved automatically about a second after each edit; the label at the right end of the gray bar at the bottom shows whether everything is saved. DevSelfTrace protects long sessions:
@@ -87,7 +87,7 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 
 ## Label sets
 
-A **label set** defines the questions: its dimensions, their options and hover explanations. It is a JSON file in [`labels/`](labels/):
+A **label set** defines the questions: its dimensions, their options and the options' short explanations. It is a JSON file in [`labels/`](labels/):
 
 | File | Contents |
 |---|---|
@@ -135,7 +135,7 @@ A **label set** defines the questions: its dimensions, their options and hover e
 | `prompt` | The question shown above it (defaults to `label`). |
 | `help` | Optional explanation shown under the question. |
 | `type` | `"single"`: pick one option. `"pairs"`: add one or more pairs of two `fields`, e.g. an action and the tool used for it. |
-| `options` | Strings, or `{ "value": ..., "hint": ... }` to show an explanation on hover. |
+| `options` | Strings, or `{ "value": ..., "hint": ... }` to show a short explanation under the menu when that option is chosen. |
 | `allowCustom` | `false` turns off custom labels for this dimension (default `true`). |
 | `placeholder` | Text shown in the empty dropdown. |
 | `optional` | On a pairs field: the field may be left empty (stored as `null`). |
