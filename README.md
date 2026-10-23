@@ -229,6 +229,10 @@ If you use DevSelfTrace, please cite the study it was built for (a tool paper is
 }
 ```
 
+## Acknowledgements
+
+DevSelfTrace started from the video labeling interface of the CUPS study tool by Mozannar et al. ([microsoft/coderec_programming_states](https://github.com/microsoft/coderec_programming_states), MIT License). The CUPS label set in [`labels/cups.json`](labels/cups.json) uses the state names and definitions from that tool.
+
 ## License
 
-MIT, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE), which also includes the license of the CUPS tool that DevSelfTrace started from.
