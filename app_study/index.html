@@ -5,6 +5,7 @@
   <link rel="icon" type="image/x-icon" href="static/favicon.ico">
   <link rel="stylesheet" href="static/demo_open.css">
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- "auto": use server.py when it is running, else the browser. The GitHub Pages copy (docs/app) says "browser". -->
   <meta name="devselftrace-mode" content="auto" />
   <meta name="description" content="DevSelfTrace: retrospective self-annotation of programming behavior" />
@@ -16,21 +17,23 @@
     .hidden { display: none !important; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* Two columns: questions/logs on the left, video and controls on the right.
-       Fixed proportions, so the left column no longer shrinks when a label set has few questions. */
-    .layout { display: flex; gap: 20px; align-items: flex-start; }
-    .col-left { flex: 0 0 40%; min-width: 340px; }
-    .col-right { flex: 1 1 0; min-width: 0; }
+    /* Give the recording most of the width and the height left after the controls. */
+    .main { margin: 16px 0; }
+    .main > .section { margin-bottom: 0; }
+    .post-body { display: flex; flex-direction: column; height: calc(100vh - 32px); height: calc(100dvh - 32px); min-height: 620px; padding: 0 16px; }
+    .layout { display: grid; grid-template-columns: minmax(360px, 32fr) minmax(0, 68fr); gap: 18px; align-items: stretch; flex: 1 1 0; min-height: 0; }
+    .col-left { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .col-right { display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; }
 
     /* Questions / Logs Table tabs */
-    .view-toggle { display: flex; gap: 12px; margin-bottom: 12px; }
+    .view-toggle { display: flex; flex: 0 0 auto; gap: 10px; margin-bottom: 10px; }
     .toggle-btn { flex: 1 1 0; padding: 9px 10px; font-size: 16px; font-weight: bold; border: 2px solid #333; border-radius: 6px; cursor: pointer; }
     .toggle-btn.active { background-color: #bf1f24; border-color: #bf1f24; color: white; }
     .toggle-btn.inactive { background-color: #e6e6e6; color: #222; }
 
     /* Scrolling panel holding the questions or the logs table */
-    .logs-table { height: 62vh; overflow-y: auto; overflow-x: hidden; border: 1px solid #ccc; border-radius: 6px; }
-    .content-section { padding: 12px 14px; }
+    .logs-table { flex: 1 1 0; min-height: 0; overflow: auto; border: 1px solid #ccc; border-radius: 6px; }
+    .content-section { padding: 12px; }
     #table_events th, #table_events td { padding: 4px 6px; border-bottom: 1px solid #eee; vertical-align: top; }
     #table_events th { font-weight: bold; color: #555; }
     .highlighted-row { background-color: #d1e7dd; }
@@ -56,42 +59,54 @@
     .chips-empty { color: #888; font-size: 13px; }
 
     /* Add / Delete / Edit and the summary of the interval being annotated */
-    .button-group { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
-    #state { margin-top: 18px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 13px; }
-    #state .missing { margin-top: 4px; color: #8a4b00; }
+    .button-group { display: flex; flex: 0 0 auto; justify-content: space-between; gap: 8px; margin-top: 10px; }
+    #state { flex: 0 0 auto; max-height: 40vh; overflow: auto; margin-top: 12px; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; background: #fafafa; font-size: 13px; }
+    .summary-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+    .interval-summary { width: 100%; margin: 0; table-layout: fixed; }
+    .interval-summary th, .interval-summary td { padding: 4px 0; border: 0; vertical-align: top; line-height: 1.5; }
+    .interval-summary th { width: 116px; padding-right: 12px; color: #666; font-size: 12px; font-weight: normal; }
+    .interval-summary td { color: #222; overflow-wrap: anywhere; }
+    .summary-value + .summary-value { margin-top: 5px; }
+    #state .missing { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e1e1e1; color: #8a4b00; font-size: 12px; }
 
-    /* The video fills the right column; 16:9 until a recording is loaded, then the recording's own shape,
-       never taller than 70% of the window (letterboxed instead of cropped) */
-    #codeVideo { display: block; width: 100%; height: auto; max-height: 70vh; aspect-ratio: auto 16 / 9; background: #000; object-fit: contain; }
+    /* Select the recording below the playback controls; preserve its proportions within the player. */
+    .video-source { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0 4px; font-size: 14px; }
+    .video-source label { font-weight: 600; }
+    #video-upload { flex: 1 1 180px; min-width: 0; max-width: 360px; font-size: 13px; }
+    .video-hint { flex-basis: 100%; margin: 2px 0 0; color: #555; font-size: 12px; }
+    .wrapper { position: relative; flex: 1 1 0; min-height: 180px; overflow: hidden; border-radius: 6px; background: #000; }
+    #codeVideo { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 
     /* Start / end times: typed, or taken from the video */
-    #timeSelection { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 18px; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; background-color: #f9f9f9; }
+    .video-controls { display: flex; flex: 0 0 auto; flex-direction: column; gap: 10px; padding: 10px 12px; border: 1px solid #ccc; border-radius: 6px; background: #f9f9f9; }
+    #timeSelection { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; }
     .time-group { display: inline-flex; align-items: center; gap: 6px; }
     .time-input { width: 84px; padding: 5px 7px; border: 1px solid #bbb; border-radius: 5px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
     .time-input.invalid { border-color: #c0392b; background: #fdecea; }
     .link-btn { padding: 4px 8px; border: 1px solid #bbb; border-radius: 5px; background: #fff; font-size: 13px; cursor: pointer; }
 
-    .navigation-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-    .video-hint { margin-top: 6px; color: #555; font-size: 13px; }
+    .navigation-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-top: 10px; border-top: 1px solid #e1e1e1; }
+    .playback-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+    .playback-group .slider { width: 110px; }
+    .navigation-buttons .button { padding: 5px 10px; border: 1px solid #bbb; border-radius: 5px; background: #fff; font-size: 13px; }
+    #speed_value { min-width: 3ch; }
 
-    /* Gray bar under both columns: label set, annotations (export, import, start over, sample), save status.
-       Quiet buttons, so the pink ones stay for the video and the times. */
-    .app-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; margin-top: 14px; padding: 6px 12px; border: 1px solid #dcdcdc; border-radius: 6px; background: #f0f0f0; }
-    .labelset-bar, .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-    .labelset-bar label, .session-bar > span { color: #555; font-size: 14px; font-weight: 600; }
-    .labelset-bar select { margin: 0; padding: 4px; }
-    .bar-divider { width: 1px; height: 24px; background: #cfcfcf; }
-    .bar-btn { padding: 5px 12px; border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; color: #333; font-size: 13px; white-space: nowrap; cursor: pointer; }
+    /* Session controls stay under the video selector: two tight rows whose labels have the same width,
+       so the menu and the buttons line up. */
+    .app-bar { display: flex; flex: 0 0 auto; flex-direction: column; align-items: stretch; gap: 6px; padding: 7px 12px; border: 1px solid #dcdcdc; border-radius: 6px; background: #f0f0f0; }
+    .labelset-bar, .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .labelset-bar label, .session-bar > span { min-width: 92px; color: #555; font-size: 14px; font-weight: 600; }
+    .labelset-bar select { margin: 0; padding: 3px 6px; border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; font-size: 13px; }
+    .bar-btn { padding: 4px 10px; border: 1px solid #c4c4c4; border-radius: 6px; background: #fff; color: #333; font-size: 13px; white-space: nowrap; cursor: pointer; }
     .bar-btn:hover:not(:disabled) { background: #e6e6e6; }
     .labelset-lock { color: #555; font-size: 13px; cursor: help; }
 
-    /* Save status (right end of the gray bar) and the banner for save problems and questions */
-    .save-status { margin-left: auto; padding: 4px 10px; border-radius: 12px; font-size: 12px; line-height: 1.4; background: #e8e8e8; color: #333; }
+    /* Save status at the end of the label set row; any save problem or question follows the gray box. */
+    .save-status { margin-left: auto; max-width: 100%; padding: 4px 10px; border-radius: 12px; font-size: 12px; line-height: 1.4; background: #e8e8e8; color: #333; }
     .save-status.ok { background: #d1e7dd; color: #0f5132; }
     .save-status.error { background: #f8d7da; color: #842029; }
     .save-status.readonly { background: #cfe2ff; color: #084298; }
-    /* In the page flow (not floating), so it never covers the controls; just above the gray bar */
-    .save-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 14px; border: 1px solid #ffecb5; border-radius: 6px; background: #fff3cd; color: #664d03; font-size: 14px; line-height: 1.4; }
+    .save-banner { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid #ffecb5; border-radius: 6px; background: #fff3cd; color: #664d03; font-size: 14px; line-height: 1.4; }
     .save-banner button { padding: 4px 10px; border: 1px solid #997404; border-radius: 4px; background: #fff; color: #664d03; cursor: pointer; }
 
     /* Explanation that appears right away on hover or keyboard focus (data-tip="..."); the browser's own
@@ -99,7 +114,7 @@
     .tip { position: relative; }
     .tip::after {
       content: attr(data-tip);
-      /* opens upwards, to the left of the element's right edge (they sit in the gray bar at the bottom) */
+      /* Opens upwards within the right column. */
       position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 1200;
       width: 300px; padding: 8px 10px; border-radius: 6px; background: #333; color: #fff;
       font-size: 12px; font-weight: normal; line-height: 1.4; text-align: left; white-space: normal;
@@ -113,6 +128,13 @@
     .toast { max-width: 560px; padding: 9px 14px; border-radius: 6px; background: #333; color: #fff; font-size: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); transition: opacity 0.3s; }
     .toast.error { background: #a12a2a; }
     .toast.fade { opacity: 0; }
+
+    @media (max-width: 900px) {
+      .post-body { height: auto; min-height: calc(100vh - 32px); }
+      .layout { grid-template-columns: minmax(0, 1fr); flex: 0 0 auto; }
+      .logs-table { flex: 0 0 auto; min-height: 280px; max-height: 55vh; }
+      .wrapper { flex: 0 0 auto; height: clamp(180px, 52vw, 540px); min-height: 0; }
+    }
   </style>
 </head>
 
@@ -122,7 +144,7 @@
   <div class="main">
     <div class="section">
       <div class="section-content">
-        <div class="post-body" style="height: 100vh; padding-left: 1em; padding-right: 1em;">
+        <div class="post-body">
           <div class="row layout">
             <div class="column col-left">
 
@@ -148,7 +170,7 @@
                 <button id="editLabel" class="btn-hover color-8" title="Change the answers of the selected row (only the questions you answer change)">Edit Label</button>
               </div>
 
-              <!-- The interval being annotated: its times, answers, and what is still needed -->
+              <!-- Two-column summary of the times and answers being annotated. -->
               <div id="state" aria-live="polite"></div>
             </div>
 
@@ -158,81 +180,82 @@
                 <video id="codeVideo" controls muted></video>
               </div>
 
-              <!-- Time Controls -->
-              <div id="timeSelection">
-                <span class="time-group">
-                  <label for="startTimeInput">Start</label>
-                  <input id="startTimeInput" class="time-input" type="text" inputmode="decimal" placeholder="m:ss.s" autocomplete="off">
-                  <button id="setStartTime" class="btn-hover color-10" title="Use the video's current time as the start">Set from video</button>
-                </span>
-                <span class="time-group">
-                  <label for="endTimeInput">End</label>
-                  <input id="endTimeInput" class="time-input" type="text" inputmode="decimal" placeholder="m:ss.s" autocomplete="off">
-                  <button id="setEndTime" class="btn-hover color-10" title="Use the video's current time as the end">Set from video</button>
-                </span>
-                <button id="jumpToStart" class="link-btn" title="Move the video to the start time">Jump to start</button>
+              <div class="video-controls">
+                <!-- Time Controls -->
+                <div id="timeSelection">
+                  <span class="time-group">
+                    <label for="startTimeInput">Start</label>
+                    <input id="startTimeInput" class="time-input" type="text" inputmode="decimal" placeholder="m:ss.s" autocomplete="off">
+                    <button id="setStartTime" class="btn-hover color-10" title="Use the video's current time as the start">Set from video</button>
+                  </span>
+                  <span class="time-group">
+                    <label for="endTimeInput">End</label>
+                    <input id="endTimeInput" class="time-input" type="text" inputmode="decimal" placeholder="m:ss.s" autocomplete="off">
+                    <button id="setEndTime" class="btn-hover color-10" title="Use the video's current time as the end">Set from video</button>
+                  </span>
+                  <button id="jumpToStart" class="link-btn" title="Move the video to the start time">Jump to start</button>
+                </div>
+
+                <!-- Playback Controls -->
+                <div class="navigation-buttons">
+                  <div class="playback-group">
+                    <button class="button" id="autoPlay">Play</button>
+                    <label for="speed_slider">Playback Speed</label>
+                    <input type="range" list="steplist" min="0.25" step="0.25" max="3" value="1"
+                      class="slider" id="speed_slider">
+                    <span id="speed_value">1×</span>
+                    <datalist id="steplist">
+                      <option>0.25</option>
+                      <option>0.5</option>
+                      <option>1</option>
+                      <option>1.5</option>
+                      <option>2</option>
+                      <option>2.5</option>
+                      <option>3</option>
+                    </datalist>
+                  </div>
+                  <div class="playback-group">
+                    <span>Navigate Events</span>
+                    <button class="button" id="prev_index" aria-label="Previous interval">&#8249;</button>
+                    <button class="button" id="next_index" aria-label="Next interval">&#8250;</button>
+                    <button class="button" id="replay_event">Replay Event</button>
+                  </div>
+                </div>
               </div>
 
-              <!-- Playback Controls -->
-              <div class="navigation-buttons" style="margin-top: 18px;">
-                <button class="button" style="border-radius: 50%;" id="autoPlay">AutoPlay</button>
-                <label for="speed_slider">Playback Speed</label>
-                <input type="range" list="steplist" style="width: 15%;" min="0.25" step="0.25" max="3" value="1"
-                  class="slider" id="speed_slider">
-                <span id="speed_value">1×</span>
-                <datalist id="steplist">
-                  <option>0.25</option>
-                  <option>0.5</option>
-                  <option>1</option>
-                  <option>1.5</option>
-                  <option>2</option>
-                  <option>2.5</option>
-                  <option>3</option>
-                </datalist>
-                Navigate Events
-                <button class="button" id="prev_index">&#8249;</button>
-                <button class="button" id="next_index">&#8250;</button>
-                <button class="button" id="replay_event">Replay Event</button>
-              </div>
-
-              <!-- Section for video selection -->
-              <div style="margin-top: 18px;">
+              <div class="video-source">
                 <label for="video-upload">Select a video:</label>
                 <input type="file" id="video-upload" accept="video/*">
                 <button id="loadVideoButton" class="btn-hover color-10">Load Video</button>
-                <p class="video-hint">Plays only in this browser, never uploaded. No video? Type start and end times in the boxes above, or try "Load sample".</p>
+                <p class="video-hint">Plays only in this browser, never uploaded. No video? Type start and end times above, or try "Load sample".</p>
               </div>
 
+              <div class="app-bar">
+                <!-- Label set: which dimensions and options the questions show -->
+                <div class="labelset-bar">
+                  <label for="labelset-select">Label set:</label>
+                  <select id="labelset-select"></select>
+                  <button id="labelset-load" class="bar-btn" title="Load a label set from a JSON file">Load from file</button>
+                  <input type="file" id="labelset-file" accept=".json,application/json" hidden>
+                  <span id="labelset-lock" class="labelset-lock tip hidden" tabindex="0">Locked</span>
+                  <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
+                </div>
+
+                <!-- Annotations: take them out, bring them back, start over, or load the sample -->
+                <div class="session-bar">
+                  <span>Annotations:</span>
+                  <button id="export-json" class="bar-btn" title="Download the annotations as JSON (can be imported again)">Export JSON</button>
+                  <button id="export-csv" class="bar-btn" title="Download the annotations as a CSV table (one row per interval)">Export CSV</button>
+                  <button id="import-json" class="bar-btn" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON</button>
+                  <input type="file" id="import-file" accept=".json,application/json" hidden>
+                  <button id="start-over" class="bar-btn tip" data-tip="Clear all annotations and begin again with an empty session, e.g. for the next participant or to switch label sets. You are asked first and can export a copy; on the server the previous version also stays in the .bak backups.">Start over</button>
+                  <button id="load-sample" class="bar-btn" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
+                </div>
+              </div>
+
+              <!-- Notices and questions stay next to the session controls. -->
+              <div id="save-banner" class="save-banner hidden" role="alert"></div>
             </div>
-          </div>
-
-          <!-- Notices and questions (save problems, "Start over?", "Replace?"), next to the buttons that ask them -->
-          <div id="save-banner" class="save-banner hidden" role="alert"></div>
-
-          <!-- Things done to the whole set of annotations, rather than to one interval -->
-          <div class="app-bar">
-            <!-- Label set: which dimensions and options the questions show -->
-            <div class="labelset-bar">
-              <label for="labelset-select">Label set:</label>
-              <select id="labelset-select"></select>
-              <button id="labelset-load" class="bar-btn" title="Load a label set from a JSON file">Load from file</button>
-              <input type="file" id="labelset-file" accept=".json,application/json" hidden>
-              <span id="labelset-lock" class="labelset-lock tip hidden" tabindex="0">Locked</span>
-            </div>
-            <span class="bar-divider"></span>
-
-            <!-- Annotations: take them out, bring them back, start over, or load the sample -->
-            <div class="session-bar">
-              <span>Annotations:</span>
-              <button id="export-json" class="bar-btn" title="Download the annotations as JSON (can be imported again)">Export JSON</button>
-              <button id="export-csv" class="bar-btn" title="Download the annotations as a CSV table (one row per interval)">Export CSV</button>
-              <button id="import-json" class="bar-btn" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON</button>
-              <input type="file" id="import-file" accept=".json,application/json" hidden>
-              <button id="start-over" class="bar-btn tip" data-tip="Clear all annotations and begin again with an empty session, e.g. for the next participant or to switch label sets. You are asked first and can export a copy; on the server the previous version also stays in the .bak backups.">Start over</button>
-              <button id="load-sample" class="bar-btn" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
-            </div>
-
-            <div id="save-status" class="save-status" role="status" aria-live="polite">Loading…</div>
           </div>
         </div>
       </div>
