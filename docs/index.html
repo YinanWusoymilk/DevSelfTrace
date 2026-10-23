@@ -121,7 +121,7 @@
 
       <figure style="margin-top:2rem;">
         <img src="static/images/tool-overview.png" alt="DevSelfTrace tool overview">
-        <p class="figure-caption">Figure 1. DevSelfTrace graphical interface. Participants upload a screen recording, define time intervals, and annotate each interval across the four S-IASE dimensions.</p>
+        <p class="figure-caption">Figure 1. DevSelfTrace interface with the default S-IASE label set. Left: the questions for the interval being annotated (here with the made-up sample session loaded). Right: the participant's screen recording, the interval's start and end, and the session controls.</p>
       </figure>
     </div>
   </div>
@@ -138,10 +138,10 @@
         <span class="step-title">Upload a recording &amp; set a time interval</span>
       </div>
       <div class="content" style="margin-top:0.6rem;">
-        <p>Participants upload an MP4 screen recording of their programming session. Using a built-in video player, they navigate to a moment of interest and define a custom time interval with start/end timestamp selectors.</p>
+        <p>Participants load the screen recording of their programming session (MP4 or WebM; it plays only in their browser and is never uploaded). Using the built-in player, they move to a moment of interest and set the interval's start and end from the video, or type the times. The next interval starts where the previous one ended.</p>
         <figure>
           <img src="static/images/gui-rq123.png" alt="Uploading a recording and setting a time interval">
-          <p class="figure-caption">Figure 2. The participant uploads a screen recording (1), sets the start and end time of a specific time interval (2), and annotates the selected interval across four dimensions (3) via the corresponding dropdown menus.</p>
+          <p class="figure-caption">Figure 2. The participant loads a screen recording (1), sets the start and end time of an interval (2), and annotates the interval across the dimensions of the label set (3).</p>
         </figure>
       </div>
     </div>
@@ -149,13 +149,13 @@
     <div class="workflow-step">
       <div>
         <span class="step-number">2</span>
-        <span class="step-title">Annotate via guided dropdown menus</span>
+        <span class="step-title">Annotate with guided menus</span>
       </div>
       <div class="content" style="margin-top:0.6rem;">
-        <p>Each dimension comes with pre-defined options and accepts custom labels. Because <em>intention</em> is more abstract than the other dimensions, hovering over each intention reveals a short definition (e.g., <em>To Design/Plan New Code</em> → "Decide how to build something new").</p>
+        <p>Each dimension offers predefined options and, through <em>Other…</em>, custom labels. Because <em>intention</em> is more abstract than the other dimensions, the chosen intention's short definition is shown under the menu (e.g., <em>To Evaluate Suggestions</em> → "Check if AI/tool suggestions are good"). Actions and their supporting tools are added as pairs, shown as chips that can be removed. "Add Log" stays disabled until the interval is complete, and the summary says what is still missing.</p>
         <figure>
-          <img src="static/images/dropdown-hover.png" alt="Dropdown menu with hover tip for the intention dimension">
-          <p class="figure-caption">Figure 3. Dropdown menu selection. Hover tips help participants choose the most appropriate intention label.</p>
+          <img style="display:block; max-width:520px; margin:0 auto;" src="static/images/questions-panel.png" alt="Questions for one interval: intention with its definition, action-tool pairs as chips, emotion valence">
+          <p class="figure-caption">Figure 3. Annotating one interval: the chosen intention's definition below the menu, two action–tool pairs as chips, and the emotion valence.</p>
         </figure>
       </div>
     </div>
@@ -163,13 +163,13 @@
     <div class="workflow-step">
       <div>
         <span class="step-number">3</span>
-        <span class="step-title">Review &amp; export structured JSON</span>
+        <span class="step-title">Review &amp; export structured data</span>
       </div>
       <div class="content" style="margin-top:0.6rem;">
-        <p>A live log table shows every annotated interval and allows in-place edit or delete. When the session is done, all annotations are exported as a structured JSON file suitable for sequence mining, co-occurrence modeling, or qualitative coding.</p>
+        <p>A live log table shows every annotated interval; participants select a row to replay, edit, or delete it. Annotations are saved automatically and can be exported at any time as structured JSON (re-importable) or CSV, suitable for sequence mining, co-occurrence modeling, or qualitative coding.</p>
         <figure>
-          <img src="static/images/logs-table.png" alt="Logs table showing all annotated intervals">
-          <p class="figure-caption">Figure 4. Logs table displaying all existing annotations for review and editing.</p>
+          <img style="display:block; max-width:520px; margin:0 auto;" src="static/images/logs-table.png" alt="Logs table showing all annotated intervals">
+          <p class="figure-caption">Figure 4. Logs table with all annotated intervals of the sample session; the selected row can be replayed, edited, or deleted.</p>
         </figure>
 
         <p style="margin-top:1rem;">An example of a single annotated interval in the exported JSON (times in seconds; one key per dimension of the label set):</p>

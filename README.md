@@ -4,6 +4,8 @@
 
 **DevSelfTrace** is a browser-based tool for **retrospective self-annotation of programming behavior**. After a programming session, a developer watches their own screen recording, splits it into time intervals they choose, and labels each interval. With the default label set those labels are their **intention**, their **actions** with the **supporting tool** used for each, and their **emotion**. Researchers get the annotations as structured JSON or CSV for analysis such as sequential pattern mining or qualitative coding.
 
+![DevSelfTrace: questions for the current interval on the left, the screen recording and session controls on the right](docs/static/images/tool-overview.png)
+
 - **Try it online (nothing to install):** <https://yinanwusoymilk.github.io/DevSelfTrace/app/>
 - **Project page:** <https://yinanwusoymilk.github.io/DevSelfTrace/>
 - **Demo video:** <https://youtu.be/pXlFTPROoWk>
