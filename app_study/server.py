@@ -1,4 +1,4 @@
-from bottle import route, run, static_file
+from bottle import static_file
 import bottle
 import threading
 import json
@@ -9,7 +9,6 @@ import tempfile
 parser = argparse.ArgumentParser(description="DevSelfTrace annotation server: serves the page and saves annotations to a JSON file.")
 
 app = bottle.Bottle()
-logs = ""
 my_module = os.path.abspath(__file__)
 parent_dir = os.path.dirname(my_module)
 static_dir = os.path.join(parent_dir, 'static')
@@ -98,11 +97,9 @@ def save():
 def initialize_html():
     global json_path, video_path
     try:
+        # Make sure the logs file is readable before the page relies on it
         with open(json_path, 'r', encoding='utf-8') as fl:
-            data = json.load(fl)
-
-        logs = data.get('logs', [])
-        labeled_so_far = sum(1 for log in logs if log.get('label') != 'not_labeled')
+            json.load(fl)
 
         # Use absolute paths to serve files
         json_url = f"/files/json"
@@ -112,7 +109,6 @@ def initialize_html():
             'json_path': json_url,
             'video_path': video_url,
             'video_name': os.path.basename(video_path) if video_path else None,
-            'labeled_so_far': labeled_so_far,
             'labelset': labelset
         }
         return data_json

@@ -236,16 +236,8 @@
               <!-- Logs Table -->
               <div id="bodydesc" class="logs-table content-section hidden">
                 <h3>Logs Table</h3>
-                <table id="table_events" style="width: 100%; font: normal 60% sans-serif; border-collapse: collapse;">
-                  <tr>
-                    <th>ID</th>
-                    <th>Timestamps</th>
-                    <th>TimeInState</th>
-                    <th>Q1</th>
-                    <th>Q2</th>
-                    <th>Q3</th>
-                  </tr>
-                </table>
+                <!-- Header and rows are built by populateLogsTable in static/app.js -->
+                <table id="table_events" style="width: 100%; font: normal 60% sans-serif; border-collapse: collapse;"></table>
               </div>
 
               <!-- Questions: one block per dimension of the active label set, built by static/app.js -->
@@ -265,9 +257,7 @@
             <div class="column" style="flex: 70%;">
               <!-- Video Playback Section -->
               <div class="wrapper">
-                <video id="codeVideo" style="width: 100%; margin-top: 10px;" controls muted>
-                  <source src="" type="video/mp4" />
-                </video>
+                <video id="codeVideo" style="width: 100%; margin-top: 10px;" controls muted></video>
               </div>
 
               <!-- Time Controls -->
@@ -282,8 +272,9 @@
               <div class="navigation-buttons" style="margin-top: 15px;">
                 <button class="button" style="border-radius: 50%;" id="autoPlay">AutoPlay</button>
                 <label for="speed_slider">Playback Speed</label>
-                <input type="range" list="steplist" style="width: 15%;" min="0.25" step="0.5" max="3" value="1"
+                <input type="range" list="steplist" style="width: 15%;" min="0.25" step="0.25" max="3" value="1"
                   class="slider" id="speed_slider">
+                <span id="speed_value">1×</span>
                 <datalist id="steplist">
                   <option>0.25</option>
                   <option>0.5</option>

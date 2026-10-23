@@ -16,17 +16,36 @@ test("formatTime renders minutes and zero-padded seconds", () => {
     assert.equal(core.formatTime(125.4), "2:05");
 });
 
-test("formatTime rolls over instead of showing 60 seconds", { todo: "fixed in step 9" }, () => {
-    assert.equal(core.formatTime(119.6), "2:00");
+test("formatTime never shows 60 seconds (it showed 119.6 as 1:60)", () => {
+    // whole seconds, like the video player's clock
+    assert.equal(core.formatTime(119.6), "1:59");
+    assert.equal(core.formatTime(59.99), "0:59");
+    assert.equal(core.formatTime(3600), "60:00");
 });
 
 test("formatTimeForDisplay shows None when no time is set", () => {
     assert.equal(core.formatTimeForDisplay(null), "None");
+    assert.equal(core.formatTimeForDisplay(undefined), "None");
     assert.equal(core.formatTimeForDisplay(61.9), "1:01");
 });
 
-test("formatTimeForDisplay treats 0 seconds as a real time", { todo: "fixed in step 9" }, () => {
+test("formatTimeForDisplay treats 0 seconds as a real time (it showed None)", () => {
     assert.equal(core.formatTimeForDisplay(0), "0:00");
+});
+
+test("findOverlaps finds intervals sharing time, but not ones that only touch", () => {
+    const intervals = [{ id: 1, start: 0, end: 10 }, { id: 2, start: 10, end: 20 }, { id: 3, start: 30, end: 40 }];
+    assert.deepEqual(core.findOverlaps(intervals, 5, 15).map((i) => i.id), [1, 2]);
+    assert.deepEqual(core.findOverlaps(intervals, 20, 30).map((i) => i.id), []); // touches 2 and 3 only
+    assert.deepEqual(core.findOverlaps(intervals, 35, 50).map((i) => i.id), [3]);
+    assert.deepEqual(core.findOverlaps(intervals, 0, 10, 1).map((i) => i.id), []); // ignore the interval itself
+});
+
+test("clampIndex keeps the row index inside the list after deletions", () => {
+    assert.equal(core.clampIndex(3, 3), 2); // the last row was deleted
+    assert.equal(core.clampIndex(-1, 3), 0);
+    assert.equal(core.clampIndex(1, 3), 1);
+    assert.equal(core.clampIndex(5, 0), 0); // nothing left
 });
 
 test("escapeHtml neutralizes markup in custom labels", () => {

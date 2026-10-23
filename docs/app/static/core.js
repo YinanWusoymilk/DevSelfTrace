@@ -11,19 +11,16 @@
 })(typeof self !== "undefined" ? self : this, function () {
     "use strict";
 
-    // Format seconds to [minutes:seconds] format for the logs table
+    // Format seconds as m:ss, counting whole seconds like the video player does (119.6 -> "1:59")
     function formatTime(seconds) {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = (seconds % 60).toFixed(0).padStart(2, "0");
-        return `${minutes}:${remainingSeconds}`;
+        const total = Math.max(0, Math.floor(seconds));
+        return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
     }
 
-    // Format time for display in mins:secs next to the start/end buttons
+    // Same, for the start/end display: "None" until a time is set (0 seconds is a real time)
     function formatTimeForDisplay(seconds) {
-        if (!seconds) return "None"; // Handle cases where time is not set
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = Math.floor(seconds % 60);
-        return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+        if (seconds === null || seconds === undefined) return "None";
+        return formatTime(seconds);
     }
 
     // Escape text before it is inserted with innerHTML (custom labels are free text)
@@ -239,6 +236,17 @@
             if (hasAnswer(dim, selection[dim.id])) interval[dim.id] = copyAnswer(dim, selection[dim.id]);
         });
         return interval;
+    }
+
+    // Intervals that share some time with start..end (touching at an edge does not count)
+    function findOverlaps(intervals, start, end, ignoreId) {
+        return intervals.filter((interval) => interval.id !== ignoreId && start < interval.end && end > interval.start);
+    }
+
+    // Keep a row index inside the list after rows were removed (0 for an empty list)
+    function clampIndex(index, length) {
+        if (length === 0) return 0;
+        return Math.min(Math.max(index, 0), length - 1);
     }
 
     // Keep intervals in video order
@@ -474,6 +482,8 @@
         createInterval: createInterval,
         applyEdit: applyEdit,
         sortIntervals: sortIntervals,
+        findOverlaps: findOverlaps,
+        clampIndex: clampIndex,
         formatValue: formatValue,
         describeSelection: describeSelection,
         isV1Session: isV1Session,

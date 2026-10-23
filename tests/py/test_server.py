@@ -95,6 +95,7 @@ class ServerTest(unittest.TestCase):
         info = json.loads(body)
         self.assertEqual(info["json_path"], "/files/json")
         self.assertIsNone(info["video_path"])
+        self.assertNotIn("labeled_so_far", info)  # left over from the CUPS tool; never used
 
     def test_initialize_reports_video_when_given(self):
         server.video_path = os.path.join(self.tmp, "p01_recording.mp4")
