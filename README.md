@@ -235,4 +235,4 @@ DevSelfTrace started from the video labeling interface of the CUPS study tool by
 
 ## License
 
-MIT, see [LICENSE](LICENSE), which also includes the license of the CUPS tool that DevSelfTrace started from.
+MIT, see [LICENSE](LICENSE). It also carries Microsoft's copyright notice for the parts that come from the CUPS tool, which is under the same MIT terms.
