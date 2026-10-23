@@ -80,7 +80,9 @@ Then open <http://localhost:8080/>; annotations are saved to `./data/session.jso
 3. **Answer the questions** on the left. Each question is one dimension of the label set; for some options a short explanation appears under the menu once chosen (e.g. every intention), and most dimensions also accept a custom label via *Other (type your own)*. For the action–tool question, pick an action and a tool and click *+ Add*; an interval can have several pairs, each shown as a chip that × removes.
 4. **Add Log.** The interval appears in the *Logs Table*. Use ‹ › to select an interval, *Replay Event* to watch it again, *Edit Label* to change the answers of the selected interval (only the questions you answer change), and *Delete Log* to remove it.
 
-<img src="docs/static/images/logs-table.png" width="360" alt="Step 4: the Logs Table with every annotated interval of the sample session; the selected row can be replayed, edited or deleted">
+<p align="center">
+  <img src="docs/static/images/logs-table.png" width="360" alt="Step 4: the Logs Table with every annotated interval of the sample session; the selected row can be replayed, edited or deleted">
+</p>
 
 **Saving.** Changes are saved automatically about a second after each edit; the label in the gray box under the video, at the end of the *Label set* row, shows whether everything is saved. DevSelfTrace protects long sessions:
 
