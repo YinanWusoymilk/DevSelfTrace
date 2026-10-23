@@ -80,6 +80,13 @@ test("detect falls back to browser mode when there is no server at all", async (
     assert.equal(store.mode, "browser");
 });
 
+test("detect in browser mode (online copy, opened from disk) never contacts a server", async () => {
+    const fetchFn = fakeFetch({});
+    const store = await storage.detect(fetchFn, fakeStorageArea(), () => {}, "browser");
+    assert.equal(store.mode, "browser");
+    assert.equal(fetchFn.calls.length, 0);
+});
+
 test("detect warns and does not use a logs file the server cannot read", async () => {
     const messages = [];
     const fetchFn = fakeFetch({ "POST /initialize_html": { body: { status: "error", message: "bad JSON" } } });

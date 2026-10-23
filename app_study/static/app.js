@@ -45,7 +45,10 @@ var readOnly = false; // another tab is editing this session
 // Pick the storage backend and load existing logs
 async function initialization() {
     try {
-        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message));
+        // The hosted copy (docs/app) and pages opened from disk never have a server to ask
+        const declared = document.querySelector('meta[name="devselftrace-mode"]');
+        const mode = location.protocol === "file:" ? "browser" : declared ? declared.content : "auto";
+        store = await DSTStorage.detect(window.fetch.bind(window), window.localStorage, (message) => alert(message), mode);
         console.info(`DevSelfTrace running in ${store.mode} mode.`);
         const loaded = await store.load();
         // Older (v1) files are converted here; on the server the original was copied to <file>.v1.json at startup
@@ -180,13 +183,24 @@ function exportCsv() {
 
 // Replace the current annotations with those in an exported (or older DevSelfTrace) JSON file
 async function importSession(file) {
-    const result = DSTCore.parseSessionFile(await file.text(), presetLabelset(DSTPresets.defaultId));
+    loadSessionText(await file.text(), `"${file.name}"`, `Imported {n} annotation(s) from "${file.name}"`);
+}
+
+// Try DevSelfTrace without your own data: a made-up session (static/sample.js), not from any participant
+function loadSample() {
+    loadSessionText(JSON.stringify(DSTSample), "the sample session", "Loaded the sample session: {n} made-up annotations, not data from any participant");
+}
+
+// Replace the current annotations with a session read from JSON text.
+// done is the message shown afterwards; "{n}" becomes the number of annotations.
+function loadSessionText(text, source, done) {
+    const result = DSTCore.parseSessionFile(text, presetLabelset(DSTPresets.defaultId));
     if (!result.ok) {
-        alert(`"${file.name}" could not be imported: ${result.error}.`);
+        alert(`${source} could not be imported: ${result.error}.`);
         return;
     }
     const count = session.intervals.length;
-    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in "${file.name}"? Export the current ones first if you want to keep them.`)) {
+    if (count > 0 && !confirm(`Replace the ${count} current annotation(s) with the ${result.session.intervals.length} in ${source}? Export the current ones first if you want to keep them.`)) {
         return;
     }
     session = result.session;
@@ -195,7 +209,7 @@ async function importSession(file) {
     autoSaveLogs();
     const converted = result.converted ? " (converted from the older DevSelfTrace format)" : "";
     const notes = result.warnings.length > 0 ? ` Notes: ${result.warnings.join(" ")}` : "";
-    showBanner(`Imported ${session.intervals.length} annotation(s) from "${file.name}"${converted}.${notes}`, [["Dismiss", hideBanner]]);
+    showBanner(`${done.replace("{n}", session.intervals.length)}${converted}.${notes}`, [["Dismiss", hideBanner]]);
 }
 
 // Clear the annotations (keeping the label set, which can then be changed)
@@ -236,13 +250,14 @@ document.getElementById("import-file").addEventListener("change", (event) => {
     if (file) importSession(file);
 });
 document.getElementById("new-session").addEventListener("click", startNewSession);
+document.getElementById("load-sample").addEventListener("click", loadSample);
 
 // Another tab is already editing this session
 function enterReadOnly() {
     readOnly = true;
     autosave.setReadOnly(true);
     const editingControls = [button_add_row, button_delete_row, button_edit_label, labelsetSelect, labelsetLoadButton,
-        document.getElementById("import-json"), document.getElementById("new-session")];
+        document.getElementById("import-json"), document.getElementById("new-session"), document.getElementById("load-sample")];
     editingControls.forEach((button) => {
         button.disabled = true;
         button.title = "Read-only: this session is open in another tab";

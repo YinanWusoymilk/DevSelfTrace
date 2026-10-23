@@ -5,7 +5,9 @@
   <link rel="icon" type="image/x-icon" href="static/favicon.ico">
   <link rel="stylesheet" href="static/demo_open.css">
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-  <meta name="description" content="" />
+  <!-- "auto": use server.py when it is running, else the browser. The GitHub Pages copy (docs/app) says "browser". -->
+  <meta name="devselftrace-mode" content="auto" />
+  <meta name="description" content="DevSelfTrace: retrospective self-annotation of programming behavior" />
   <meta name="keywords" content="" />
   <meta name="author" content="" />
   <title>DevSelfTrace</title>
@@ -211,6 +213,7 @@
     .labelset-bar select { padding: 4px; }
     .labelset-lock { color: #555; font-size: 13px; }
     .session-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 15px; }
+    .video-hint { margin-top: 6px; color: #555; font-size: 13px; }
   </style>
 </head>
 
@@ -301,6 +304,7 @@
                 <label for="video-upload">Select a video:</label>
                 <input type="file" id="video-upload" accept="video/*">
                 <button id="loadVideoButton" class="btn-hover color-10">Load Video</button>
+                <p class="video-hint">Load any screen recording (.mp4 or .webm) from your computer. It plays only in your browser and is never uploaded. No recording at hand? Click "Load sample" below.</p>
               </div>
 
               <!-- Label set: which dimensions and options the questions show -->
@@ -320,6 +324,7 @@
                 <button id="import-json" class="btn-hover color-10" title="Continue from an exported or older DevSelfTrace JSON file">Import JSON…</button>
                 <input type="file" id="import-file" accept=".json,application/json" hidden>
                 <button id="new-session" class="btn-hover color-10" title="Clear the annotations and start over (for example with another label set)">New session</button>
+                <button id="load-sample" class="btn-hover color-10" title="Load a made-up example session to see how annotations look (not data from any participant)">Load sample</button>
               </div>
 
             </div>
@@ -331,6 +336,7 @@
 
   <!-- Scripts -->
   <script src="static/presets.js"></script>
+  <script src="static/sample.js"></script>
   <script src="static/core.js"></script>
   <script src="static/storage.js"></script>
   <script src="static/app.js"></script>

@@ -111,7 +111,9 @@
 
     // Use the server when server.py answers /initialize_html, otherwise fall back to the browser.
     // notify(message) shows problems to the user (alert in the page, a stub in tests).
-    async function detect(fetchFn, storageArea, notify) {
+    // mode "browser" skips asking for a server (hosted copy, or a page opened from disk).
+    async function detect(fetchFn, storageArea, notify, mode) {
+        if (mode === "browser") return createBrowserStorage(storageArea);
         try {
             const response = await fetchFn("/initialize_html", {
                 method: "POST",
@@ -259,7 +261,11 @@
 
         function open() {
             if (!channel && Channel) {
-                channel = new Channel(channelName);
+                try {
+                    channel = new Channel(channelName);
+                } catch (error) {
+                    return null; // not allowed here (e.g. some browsers on file:// pages): no coordination
+                }
                 channel.onmessage = (event) => {
                     const message = event.data || {};
                     if (message.type === "ping" && owner && message.id !== id) {
