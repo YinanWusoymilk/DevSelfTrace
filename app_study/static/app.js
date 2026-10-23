@@ -634,7 +634,35 @@ function highlightRow(index) {
 function updateSummary() {
     if (!labelset) return;
     const show = (seconds) => (seconds === null ? "—" : DSTCore.formatTimeInput(seconds));
-    state_text.replaceChildren(element("div", "", `Current interval: ${show(startTime)} – ${show(endTime)} · ${DSTCore.describeSelection(labelset, selection)}`));
+    const table = element("table", "interval-summary");
+    const body = element("tbody");
+    table.appendChild(body);
+    const addRow = (label, values) => {
+        const row = element("tr");
+        const heading = element("th", "", label);
+        heading.scope = "row";
+        const content = element("td");
+        values.forEach((value) => content.appendChild(element("div", "summary-value", value)));
+        row.append(heading, content);
+        body.appendChild(row);
+    };
+
+    const duration = startTime !== null && endTime !== null && endTime > startTime
+        ? ` (${(endTime - startTime).toFixed(1)} s)`
+        : "";
+    addRow("Time", [`${show(startTime)} – ${show(endTime)}${duration}`]);
+    labelset.dimensions.forEach((dim) => {
+        const value = selection[dim.id];
+        if (dim.type === "pairs") {
+            const pairs = Array.isArray(value) ? value : [];
+            addRow(dim.label, pairs.length > 0
+                ? pairs.map((pair) => dim.fields.map((field) => pair[field.id]).filter(Boolean).join(" · ") || "—")
+                : ["—"]);
+        } else {
+            addRow(dim.label, [DSTCore.formatValue(dim, value)]);
+        }
+    });
+    state_text.replaceChildren(element("h3", "summary-title", "Current interval"), table);
     const missing = DSTCore.missingForInterval(labelset, selection, startTime, endTime);
     if (missing.length > 0) state_text.appendChild(element("div", "missing", `Still needed to add it: ${missing.join(", ")}`));
     button_add_row.disabled = readOnly || missing.length > 0;
