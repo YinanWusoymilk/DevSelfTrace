@@ -8,7 +8,7 @@
 
 - **Try it online (nothing to install):** <https://yinanwusoymilk.github.io/DevSelfTrace/app/>
 - **Project page:** <https://yinanwusoymilk.github.io/DevSelfTrace/>
-- **Demo video:** <https://youtu.be/pXlFTPROoWk>
+- **Demo video:** <https://www.youtube.com/watch?v=-TLnaSmdv7o>
 - **Study that used it (FSE'26):** <https://doi.org/10.1145/3808120>
 - **Survey results (earlier version, N=33):** [survey-results.md](survey-results.md)
 
